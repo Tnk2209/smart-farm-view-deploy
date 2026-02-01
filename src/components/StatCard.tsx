@@ -16,8 +16,8 @@ interface StatCardProps {
 
 const variantStyles = {
   default: 'bg-primary/10 text-primary',
-  success: 'bg-chart-2/20 text-chart-2',
-  warning: 'bg-chart-4/20 text-chart-4',
+  success: 'bg-chart-1/20 text-chart-1',
+  warning: 'bg-chart-5/20 text-chart-5',
   danger: 'bg-destructive/10 text-destructive',
 };
 

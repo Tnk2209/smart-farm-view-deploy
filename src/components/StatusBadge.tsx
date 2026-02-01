@@ -29,8 +29,8 @@ export function StatusBadge({ status, size = 'default' }: StatusBadgeProps) {
     >
       <span className={cn(
         'mr-1.5 h-2 w-2 rounded-full',
-        status === 'normal' || status === 'active' ? 'bg-chart-2' : '',
-        status === 'warning' || status === 'inactive' ? 'bg-chart-4' : '',
+        status === 'normal' || status === 'active' ? 'bg-chart-1' : '',
+        status === 'warning' || status === 'inactive' ? 'bg-chart-5' : '',
         status === 'critical' || status === 'error' ? 'bg-destructive' : '',
         status === 'offline' ? 'bg-muted' : '',
       )} />

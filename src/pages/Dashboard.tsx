@@ -20,8 +20,8 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer }
 import { format } from 'date-fns';
 
 const chartConfig: ChartConfig = {
-  normal: { label: 'Normal', color: 'hsl(var(--chart-2))' },
-  warning: { label: 'Warning', color: 'hsl(var(--chart-4))' },
+  normal: { label: 'Normal', color: 'hsl(var(--chart-1))' },
+  warning: { label: 'Warning', color: 'hsl(var(--chart-5))' },
   critical: { label: 'Critical', color: 'hsl(var(--destructive))' },
   offline: { label: 'Offline', color: 'hsl(var(--muted))' },
 };
@@ -76,8 +76,8 @@ export default function Dashboard() {
   }
 
   const statusData = summary ? [
-    { name: 'Normal', value: summary.stationsByStatus.normal, fill: 'hsl(var(--chart-2))' },
-    { name: 'Warning', value: summary.stationsByStatus.warning, fill: 'hsl(var(--chart-4))' },
+    { name: 'Normal', value: summary.stationsByStatus.normal, fill: 'hsl(var(--chart-1))' },
+    { name: 'Warning', value: summary.stationsByStatus.warning, fill: 'hsl(var(--chart-5))' },
     { name: 'Critical', value: summary.stationsByStatus.critical, fill: 'hsl(var(--destructive))' },
     { name: 'Offline', value: summary.stationsByStatus.offline, fill: 'hsl(var(--muted))' },
   ].filter(d => d.value > 0) : [];
@@ -241,7 +241,7 @@ export default function Dashboard() {
                     >
                       <AlertTriangle className={`h-5 w-5 mt-0.5 ${
                         alert.severity === 'high' ? 'text-destructive' :
-                        alert.severity === 'medium' ? 'text-chart-4' : 'text-chart-3'
+                        alert.severity === 'medium' ? 'text-chart-5' : 'text-chart-3'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">

@@ -20,8 +20,8 @@ import { MapPin, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 const THAILAND_TOPO_JSON = "https://raw.githubusercontent.com/apisit/thailand.json/master/thailand.json";
 
 const statusColors: Record<Station['status'], string> = {
-  normal: 'hsl(var(--chart-2))',
-  warning: 'hsl(var(--chart-4))',
+  normal: 'hsl(var(--chart-1))',
+  warning: 'hsl(var(--chart-5))',
   critical: 'hsl(var(--destructive))',
   offline: 'hsl(var(--muted))',
 };
@@ -155,12 +155,12 @@ export default function MapView() {
                           <Geography
                             key={geo.rsmKey}
                             geography={geo}
-                            fill="hsl(var(--accent))"
-                            stroke="hsl(var(--border))"
+                            fill="hsl(96, 74%, 88%)"
+                            stroke="hsl(99, 59%, 54%)"
                             strokeWidth={0.5}
                             style={{
                               default: { outline: 'none' },
-                              hover: { fill: 'hsl(var(--accent)/0.8)', outline: 'none' },
+                              hover: { fill: 'hsl(99, 73%, 75%)', outline: 'none' },
                               pressed: { outline: 'none' },
                             }}
                           />
