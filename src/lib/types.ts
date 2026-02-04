@@ -20,6 +20,7 @@ export interface User {
 export interface Station {
   station_id: number;
   station_name: string;
+  device_id: string;
   province: string;
   latitude: number;
   longitude: number;
@@ -31,7 +32,8 @@ export interface Station {
 export interface Sensor {
   sensor_id: number;
   station_id: number;
-  sensor_type: 'temperature' | 'humidity' | 'soil_moisture' | 'light' | 'ph' | 'wind_speed' | 'rainfall';
+  device_id: string;
+  sensor_type: 'wind_speed' | 'air_temperature' | 'air_humidity' | 'air_pressure' | 'rainfall' | 'soil_moisture' | 'soil_temperature' | 'cabinet_temperature' | 'cabinet_humidity' | 'solar_voltage' | 'battery_voltage' | 'gate_door';
   status: 'active' | 'inactive' | 'error';
   installed_at: string;
   station_name?: string;

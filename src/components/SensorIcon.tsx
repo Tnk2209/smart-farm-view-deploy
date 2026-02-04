@@ -5,8 +5,11 @@ import {
   Sun, 
   Wind, 
   CloudRain, 
-  Beaker,
   Waves,
+  Gauge,
+  DoorOpen,
+  Battery,
+  type LucideIcon,
 } from 'lucide-react';
 
 interface SensorIconProps {
@@ -14,14 +17,19 @@ interface SensorIconProps {
   className?: string;
 }
 
-const iconMap: Record<Sensor['sensor_type'], typeof Thermometer> = {
-  temperature: Thermometer,
-  humidity: Droplets,
-  soil_moisture: Waves,
-  light: Sun,
-  ph: Beaker,
+const iconMap: Record<Sensor['sensor_type'], LucideIcon> = {
   wind_speed: Wind,
+  air_temperature: Thermometer,
+  air_humidity: Droplets,
+  air_pressure: Gauge,
   rainfall: CloudRain,
+  soil_moisture: Waves,
+  soil_temperature: Thermometer,
+  cabinet_temperature: Thermometer,
+  cabinet_humidity: Droplets,
+  solar_voltage: Sun,
+  battery_voltage: Battery,
+  gate_door: DoorOpen,
 };
 
 export function SensorIcon({ type, className }: SensorIconProps) {
@@ -30,21 +38,31 @@ export function SensorIcon({ type, className }: SensorIconProps) {
 }
 
 export const sensorTypeLabels: Record<Sensor['sensor_type'], string> = {
-  temperature: 'Temperature',
-  humidity: 'Humidity',
-  soil_moisture: 'Soil Moisture',
-  light: 'Light Intensity',
-  ph: 'pH Level',
-  wind_speed: 'Wind Speed',
-  rainfall: 'Rainfall',
+  wind_speed: 'ความเร็วลม',
+  air_temperature: 'อุณหภูมิอากาศ',
+  air_humidity: 'ความชื้นอากาศ',
+  air_pressure: 'ความดันอากาศ',
+  rainfall: 'ปริมาณน้ำฝน',
+  soil_moisture: 'ความชื้นในดิน',
+  soil_temperature: 'อุณหภูมิดิน',
+  cabinet_temperature: 'อุณหภูมิตู้',
+  cabinet_humidity: 'ความชื้นในตู้',
+  solar_voltage: 'แรงดันโซลาร์เซลล์',
+  battery_voltage: 'แรงดันแบตเตอรี่',
+  gate_door: 'ประตูรั้ว',
 };
 
 export const sensorTypeUnits: Record<Sensor['sensor_type'], string> = {
-  temperature: '°C',
-  humidity: '%',
+  wind_speed: 'm/s',
+  air_temperature: '°C',
+  air_humidity: '%',
+  air_pressure: 'hPa',
+  rainfall: 'mm/h',
   soil_moisture: '%',
-  light: 'lux',
-  ph: 'pH',
-  wind_speed: 'km/h',
-  rainfall: 'mm',
+  soil_temperature: '°C',
+  cabinet_temperature: '°C',
+  cabinet_humidity: '%',
+  solar_voltage: 'V',
+  battery_voltage: 'V',
+  gate_door: '',
 };

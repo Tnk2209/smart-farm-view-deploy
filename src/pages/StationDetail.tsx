@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { getStationById, getSensorsByStation, getAlerts } from '@/lib/api';
-import { Station, Sensor, Alert } from '@/lib/types';
+import { Station, Sensor, Alert, SensorData } from '@/lib/types';
+import { mockSensorData } from '@/lib/mockData';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
-import { SensorIcon, sensorTypeLabels } from '@/components/SensorIcon';
+import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,7 +24,29 @@ export default function StationDetail() {
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [, setUpdateTrigger] = useState(0); // Force re-render for live data
   const { hasPermission } = useAuth();
+
+  // Auto-refresh sensor values every 5 seconds for live updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUpdateTrigger(prev => prev + 1);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get latest sensor value
+  const getLatestSensorValue = (sensorId: number): { value: number; unit: string } | null => {
+    const sensorDataPoints = mockSensorData
+      .filter(d => d.sensor_id === sensorId)
+      .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+    
+    if (sensorDataPoints.length === 0) return null;
+    
+    const latest = sensorDataPoints[0];
+    return { value: latest.value, unit: latest.unit || '' };
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,6 +144,10 @@ export default function StationDetail() {
                 <span className="font-mono">#{station.station_id}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Device ID</span>
+                <span className="font-mono text-sm">{station.device_id}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Province</span>
                 <span>{station.province}</span>
               </div>
@@ -170,8 +197,10 @@ export default function StationDetail() {
                   No sensors installed at this station
                 </p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {sensors.map((sensor) => (
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {sensors.map((sensor) => {
+                    const latestValue = getLatestSensorValue(sensor.sensor_id);
+                    return (
                     <Link 
                       key={sensor.sensor_id}
                       to={`/sensors/${sensor.sensor_id}`}
@@ -179,24 +208,28 @@ export default function StationDetail() {
                     >
                       <Card className="hover:bg-muted/50 transition-colors">
                         <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="rounded-lg bg-primary/10 p-2">
-                              <SensorIcon type={sensor.sensor_type} className="h-5 w-5 text-primary" />
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-start justify-between">
+                              <div className="rounded-lg bg-primary/10 p-2">
+                                <SensorIcon type={sensor.sensor_type} className="h-5 w-5 text-primary" />
+                              </div>
+                              <StatusBadge status={sensor.status} size="sm" />
                             </div>
-                            <div className="flex-1">
-                              <p className="font-medium">
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm leading-tight">
                                 {sensorTypeLabels[sensor.sensor_type]}
                               </p>
-                              <p className="text-xs text-muted-foreground font-mono">
-                                ID: {sensor.sensor_id}
-                              </p>
+                              {latestValue && (
+                                <p className="text-lg font-bold text-primary">
+                                  {latestValue.value} {latestValue.unit}
+                                </p>
+                              )}
                             </div>
-                            <StatusBadge status={sensor.status} size="sm" />
                           </div>
                         </CardContent>
                       </Card>
                     </Link>
-                  ))}
+                  )})}
                 </div>
               )}
             </CardContent>

@@ -8,6 +8,7 @@ import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/Sens
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Thermometer, ArrowLeft, Calendar, TrendingUp, TrendingDown, 
   Minus, Radio
@@ -43,6 +44,23 @@ export default function SensorDetail() {
   const [threshold, setThreshold] = useState<Threshold | null>(null);
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
+  const [, setUpdateTrigger] = useState(0);
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h' | '7d' | '30d'>('12h');
+
+  // Auto-refresh for live data
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUpdateTrigger(prev => prev + 1);
+      // Refetch sensor data
+      if (id) {
+        getSensorData(parseInt(id)).then(res => {
+          if (res.success) setSensorData(res.data);
+        });
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,12 +148,57 @@ export default function SensorDetail() {
   const maxValue = values.length > 0 ? Math.max(...values) : 0;
   const unit = sensorTypeUnits[sensor.sensor_type];
 
-  // Prepare chart data (last 24 readings for cleaner view)
-  const chartData = sensorData.slice(-48).map(d => ({
-    time: format(new Date(d.recorded_at), 'HH:mm'),
-    value: d.value,
-    fullTime: format(new Date(d.recorded_at), 'MMM d, HH:mm'),
-  }));
+  // Filter data based on selected time range
+  const getDataForTimeRange = () => {
+    const now = Date.now();
+    const timeRanges = {
+      '1h': 60 * 60 * 1000,
+      '6h': 6 * 60 * 60 * 1000,
+      '12h': 12 * 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+    };
+    
+    const cutoffTime = now - timeRanges[timeRange];
+    return sensorData.filter(d => new Date(d.recorded_at).getTime() >= cutoffTime);
+  };
+
+  const filteredData = getDataForTimeRange();
+
+  // Prepare chart data with appropriate sampling
+  const getChartData = () => {
+    const data = filteredData;
+    let samplingRate = 1;
+    
+    // Adjust sampling based on time range to keep chart readable
+    if (timeRange === '7d') samplingRate = 20;
+    else if (timeRange === '30d') samplingRate = 60;
+    else if (timeRange === '24h') samplingRate = 4;
+    else if (timeRange === '12h') samplingRate = 2;
+    
+    return data
+      .filter((_, index) => index % samplingRate === 0)
+      .map(d => ({
+        time: format(new Date(d.recorded_at), 
+          timeRange === '7d' || timeRange === '30d' ? 'MMM d' : 'HH:mm'
+        ),
+        value: d.value,
+        fullTime: format(new Date(d.recorded_at), 'MMM d, HH:mm'),
+      }));
+  };
+
+  const chartData = getChartData();
+
+  // Time range labels
+  const timeRangeLabels = {
+    '1h': 'Last Hour',
+    '6h': 'Last 6 Hours',
+    '12h': 'Last 12 Hours',
+    '24h': 'Last 24 Hours',
+    '7d': 'Last 7 Days',
+    '30d': 'Last 30 Days',
+  };
 
   // Determine trend
   const recentValues = values.slice(-10);
@@ -258,39 +321,72 @@ export default function SensorDetail() {
         {/* Time Series Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Sensor Data (Last 12 Hours)</CardTitle>
-            <CardDescription>
-              {threshold && (
-                <span>
-                  Threshold: {threshold.min_value} - {threshold.max_value} {unit}
-                </span>
-              )}
-            </CardDescription>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Sensor Data ({timeRangeLabels[timeRange]})</CardTitle>
+                <CardDescription>
+                  {threshold && (
+                    <span>
+                      Threshold: {threshold.min_value} - {threshold.max_value} {unit}
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
+              <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
+                <TabsList className="grid grid-cols-3 lg:grid-cols-6">
+                  <TabsTrigger value="1h" className="text-xs">1H</TabsTrigger>
+                  <TabsTrigger value="6h" className="text-xs">6H</TabsTrigger>
+                  <TabsTrigger value="12h" className="text-xs">12H</TabsTrigger>
+                  <TabsTrigger value="24h" className="text-xs">24H</TabsTrigger>
+                  <TabsTrigger value="7d" className="text-xs">7D</TabsTrigger>
+                  <TabsTrigger value="30d" className="text-xs">30D</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[350px]">
-              <ComposedChart data={chartData}>
+          <CardContent className="pt-6">
+            <ChartContainer config={chartConfig} className="h-[400px] w-full">
+              <ComposedChart 
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05}/>
+                  </linearGradient>
+                </defs>
                 <XAxis 
                   dataKey="time" 
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={false}
-                  interval="preserveStartEnd"
+                  axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                  tickMargin={8}
+                  minTickGap={30}
                 />
                 <YAxis 
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={false}
-                  domain={['auto', 'auto']}
+                  axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
+                  tickMargin={8}
+                  domain={['dataMin - 5', 'dataMax + 5']}
+                  label={{ 
+                    value: unit, 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    style: { fontSize: 11, fill: 'hsl(var(--muted-foreground))' }
+                  }}
                 />
                 <ChartTooltip 
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="rounded-lg border bg-background p-2 shadow-sm">
-                          <p className="text-sm font-medium">{data.fullTime}</p>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-lg">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">
+                            {data.fullTime}
+                          </p>
+                          <p className="text-lg font-bold text-primary">
                             {data.value.toFixed(2)} {unit}
                           </p>
                         </div>
@@ -298,36 +394,59 @@ export default function SensorDetail() {
                     }
                     return null;
                   }}
+                  cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }}
                 />
                 {threshold && (
                   <>
                     <ReferenceLine 
-                      y={threshold.min_value} 
-                      stroke="hsl(var(--chart-4))" 
-                      strokeDasharray="5 5"
-                      label={{ value: 'Min', position: 'left', fontSize: 10 }}
-                    />
-                    <ReferenceLine 
                       y={threshold.max_value} 
                       stroke="hsl(var(--destructive))" 
-                      strokeDasharray="5 5"
-                      label={{ value: 'Max', position: 'left', fontSize: 10 }}
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      label={{ 
+                        value: `Max ${threshold.max_value}`,
+                        position: 'insideTopRight',
+                        fontSize: 11,
+                        fill: 'hsl(var(--destructive))',
+                        fontWeight: 600
+                      }}
+                    />
+                    <ReferenceLine 
+                      y={threshold.min_value} 
+                      stroke="hsl(var(--chart-4))" 
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      label={{ 
+                        value: `Min ${threshold.min_value}`,
+                        position: 'insideBottomRight',
+                        fontSize: 11,
+                        fill: 'hsl(var(--chart-4))',
+                        fontWeight: 600
+                      }}
                     />
                   </>
                 )}
                 <Area
                   type="monotone"
                   dataKey="value"
-                  fill="hsl(var(--primary)/0.1)"
+                  fill="url(#colorValue)"
                   stroke="none"
+                  animationDuration={800}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="value" 
                   stroke="hsl(var(--primary))"
-                  strokeWidth={2}
+                  strokeWidth={3}
                   dot={false}
-                  activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+                  activeDot={{ 
+                    r: 6, 
+                    fill: 'hsl(var(--primary))',
+                    stroke: 'hsl(var(--background))',
+                    strokeWidth: 2
+                  }}
+                  animationDuration={800}
+                  animationEasing="ease-in-out"
                 />
               </ComposedChart>
             </ChartContainer>

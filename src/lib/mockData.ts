@@ -48,32 +48,51 @@ const thailandProvinces = [
 ];
 
 const sensorTypes: Sensor['sensor_type'][] = [
-  'temperature', 'humidity', 'soil_moisture', 'light', 'ph', 'wind_speed', 'rainfall'
+  'wind_speed', 'air_temperature', 'air_humidity', 'air_pressure', 'rainfall', 
+  'soil_moisture', 'soil_temperature', 'cabinet_temperature', 'cabinet_humidity', 
+  'solar_voltage', 'battery_voltage', 'gate_door'
 ];
 
 const stationStatuses: Station['status'][] = ['normal', 'warning', 'critical', 'offline'];
 
-// Generate stations (approximately 40 stations as per document)
-export const mockStations: Station[] = thailandProvinces.map((province, index) => ({
-  station_id: index + 1,
-  station_name: `${province.name} Agricultural Station`,
-  province: province.name,
-  latitude: province.lat + (Math.random() - 0.5) * 0.1,
-  longitude: province.lng + (Math.random() - 0.5) * 0.1,
-  status: stationStatuses[Math.floor(Math.random() * 10) < 7 ? 0 : Math.floor(Math.random() * 4)],
-  created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-  sensor_count: Math.floor(Math.random() * 5) + 3,
-}));
+// Generate unique device ID for each station
+const generateStationDeviceId = (stationId: number): string => {
+  const prefix = 'IG502';
+  const stationCode = String.fromCharCode(65 + (stationId - 1) % 26) + 
+                      String.fromCharCode(66 + Math.floor((stationId - 1) / 26) % 26) + 
+                      String.fromCharCode(67 + Math.floor((stationId - 1) / 676) % 26);
+  const randomNum = (100 + stationId).toString().padStart(3, '0');
+  return `${prefix}-${stationCode}${randomNum}`;
+};
 
-// Generate sensors (3-7 sensors per station)
+// Generate stations (approximately 40 stations as per document)
+export const mockStations: Station[] = thailandProvinces.map((province, index) => {
+  const stationId = index + 1;
+  return {
+    station_id: stationId,
+    station_name: `${province.name} Agricultural Station`,
+    device_id: generateStationDeviceId(stationId),
+    province: province.name,
+    latitude: province.lat + (Math.random() - 0.5) * 0.1,
+    longitude: province.lng + (Math.random() - 0.5) * 0.1,
+    status: stationStatuses[Math.floor(Math.random() * 10) < 7 ? 0 : Math.floor(Math.random() * 4)],
+    created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
+    sensor_count: 12,
+  };
+});
+
+// Generate sensors (all 12 types per station)
+// Each station has 1 device that reports all 12 sensor types
 let sensorIdCounter = 1;
 export const mockSensors: Sensor[] = mockStations.flatMap(station => {
-  const sensorCount = station.sensor_count || 5;
-  const selectedTypes = [...sensorTypes].sort(() => Math.random() - 0.5).slice(0, sensorCount);
+  // Use all sensor types for every station
+  // All sensors in the same station share the same device_id
+  const selectedTypes = sensorTypes;
   
-  return selectedTypes.map(sensorType => ({
+  return selectedTypes.map((sensorType) => ({
     sensor_id: sensorIdCounter++,
     station_id: station.station_id,
+    device_id: station.device_id, // ใช้ device_id จากสถานี - 1 device ต่อ 1 สถานี
     sensor_type: sensorType,
     status: Math.random() > 0.1 ? 'active' : (Math.random() > 0.5 ? 'inactive' : 'error'),
     installed_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -82,29 +101,56 @@ export const mockSensors: Sensor[] = mockStations.flatMap(station => {
 });
 
 // Generate sensor data (last 24 hours of readings)
-const generateSensorValue = (sensorType: Sensor['sensor_type']): number => {
+const generateSensorValue = (sensorType: Sensor['sensor_type'], previousValue?: number): number => {
   const ranges: Record<Sensor['sensor_type'], [number, number]> = {
-    temperature: [20, 40],
-    humidity: [40, 90],
-    soil_moisture: [20, 80],
-    light: [100, 1000],
-    ph: [5.5, 8.5],
     wind_speed: [0, 30],
+    air_temperature: [20, 40],
+    air_humidity: [40, 90],
+    air_pressure: [980, 1030],
     rainfall: [0, 50],
+    soil_moisture: [20, 80],
+    soil_temperature: [18, 35],
+    cabinet_temperature: [25, 50],
+    cabinet_humidity: [30, 70],
+    solar_voltage: [10, 25],
+    battery_voltage: [11, 14],
+    gate_door: [0, 1],
   };
   const [min, max] = ranges[sensorType];
+  
+  // If we have a previous value, make small incremental changes for realistic simulation
+  if (previousValue !== undefined && sensorType !== 'gate_door') {
+    const maxChange = (max - min) * 0.05; // 5% maximum change per update
+    const change = (Math.random() - 0.5) * 2 * maxChange;
+    let newValue = previousValue + change;
+    
+    // Keep within bounds
+    newValue = Math.max(min, Math.min(max, newValue));
+    return Math.round(newValue * 100) / 100;
+  }
+  
+  // For gate_door, random 0 or 1
+  if (sensorType === 'gate_door') {
+    return Math.random() > 0.8 ? 1 : 0;
+  }
+  
   return Math.round((min + Math.random() * (max - min)) * 100) / 100;
 };
 
 const getUnit = (sensorType: Sensor['sensor_type']): string => {
   const units: Record<Sensor['sensor_type'], string> = {
-    temperature: '°C',
-    humidity: '%',
+    wind_speed: 'm/s',
+    air_temperature: '°C',
+    air_humidity: '%',
+    air_pressure: 'hPa',
+    rainfall: 'mm/h',
     soil_moisture: '%',
-    light: 'lux',
-    ph: 'pH',
-    wind_speed: 'km/h',
-    rainfall: 'mm',
+    soil_temperature: '°C',
+    cabinet_temperature: '°C',
+    cabinet_humidity: '%',
+    solar_voltage: 'V',
+    battery_voltage: 'V',
+    gate_door: '',
   };
   return units[sensorType];
 };
@@ -129,13 +175,18 @@ mockSensors.forEach(sensor => {
 // Generate thresholds for each sensor type
 export const mockThresholds: Threshold[] = sensorTypes.map((sensorType, index) => {
   const thresholdRanges: Record<Sensor['sensor_type'], [number, number]> = {
-    temperature: [15, 35],
-    humidity: [30, 85],
-    soil_moisture: [25, 75],
-    light: [200, 900],
-    ph: [6.0, 7.5],
     wind_speed: [0, 25],
+    air_temperature: [15, 35],
+    air_humidity: [30, 85],
+    air_pressure: [990, 1020],
     rainfall: [0, 40],
+    soil_moisture: [25, 75],
+    soil_temperature: [20, 32],
+    cabinet_temperature: [20, 45],
+    cabinet_humidity: [35, 65],
+    solar_voltage: [12, 24],
+    battery_voltage: [11.5, 13.5],
+    gate_door: [0, 1],
   };
   const [min, max] = thresholdRanges[sensorType];
   
@@ -217,3 +268,70 @@ export const getDashboardSummary = (): DashboardSummary => {
     },
   };
 };
+
+// Real-time sensor data simulator
+// Updates sensor values every 5 seconds to simulate live data
+let simulatorInterval: NodeJS.Timeout | null = null;
+
+export const startSensorSimulator = () => {
+  if (simulatorInterval) return; // Already running
+  
+  console.log('⏱️ Sensor simulator started - updating every 5 seconds');
+  
+  simulatorInterval = setInterval(() => {
+    const now = new Date().toISOString();
+    
+    // Update each sensor with new simulated values
+    mockSensors.forEach(sensor => {
+      // Get the latest value for this sensor
+      const latestData = mockSensorData
+        .filter(d => d.sensor_id === sensor.sensor_id)
+        .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
+      
+      // Generate new value based on previous value for smooth transitions
+      const newValue = generateSensorValue(sensor.sensor_type, latestData?.value);
+      
+      // Add new data point
+      mockSensorData.push({
+        data_id: dataIdCounter++,
+        sensor_id: sensor.sensor_id,
+        value: newValue,
+        recorded_at: now,
+        unit: getUnit(sensor.sensor_type),
+      });
+    });
+    
+    // Keep only last 100 data points per sensor to avoid memory issues
+    const recentDataIds = new Set(
+      mockSensorData
+        .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+        .slice(0, mockSensors.length * 100)
+        .map(d => d.data_id)
+    );
+    
+    // Remove old data points
+    const originalLength = mockSensorData.length;
+    for (let i = mockSensorData.length - 1; i >= 0; i--) {
+      if (!recentDataIds.has(mockSensorData[i].data_id)) {
+        mockSensorData.splice(i, 1);
+      }
+    }
+    
+    if (originalLength !== mockSensorData.length) {
+      console.log(`🗑️ Cleaned up ${originalLength - mockSensorData.length} old data points`);
+    }
+  }, 5000); // Update every 5 seconds
+};
+
+export const stopSensorSimulator = () => {
+  if (simulatorInterval) {
+    clearInterval(simulatorInterval);
+    simulatorInterval = null;
+    console.log('⏸️ Sensor simulator stopped');
+  }
+};
+
+// Auto-start simulator when module loads
+if (typeof window !== 'undefined') {
+  startSensorSimulator();
+}
