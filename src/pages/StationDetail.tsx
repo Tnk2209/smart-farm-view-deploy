@@ -7,6 +7,7 @@ import { mockSensorData } from '@/lib/mockData';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
 import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
+import { WeatherForecast } from '@/components/WeatherForecast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -235,6 +236,9 @@ export default function StationDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Weather Forecast */}
+        <WeatherForecast />
 
         {/* Recent Alerts */}
         <Card>
