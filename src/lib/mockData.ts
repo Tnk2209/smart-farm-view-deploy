@@ -103,7 +103,7 @@ export const mockSensors: Sensor[] = mockStations.flatMap(station => {
 // Generate sensor data (last 24 hours of readings)
 const generateSensorValue = (sensorType: Sensor['sensor_type'], previousValue?: number): number => {
   const ranges: Record<Sensor['sensor_type'], [number, number]> = {
-    wind_speed: [0, 30],
+      wind_speed: [0, 30],
     air_temperature: [20, 40],
     air_humidity: [40, 90],
     air_pressure: [980, 1030],

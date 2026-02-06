@@ -41,11 +41,45 @@
 - RS-xxx
 - Ethernet / LAN / WAN
 - Sensor
+- Telemetry Data
 
 **Requirement:**
 - ระบบต้องรับข้อมูลจากอุปกรณ์ภายนอก
 - รองรับหลาย protocol
 - ข้อมูลเป็นลักษณะ time-series
+- รับข้อมูล telemetry แบบ batch (หลาย sensor readings ในข้อความเดียว)
+
+**ตัวอย่าง Telemetry Payload จริง:**
+
+```json
+{
+  "device_id": "IG502-ABC123",
+  "ts": "2026-02-01T05:25:12Z",
+  "boot_id": 1706760000,
+  "seq": 1524,
+  "msg_id": "IG502-ABC123-1706760000-1524",
+  "data": {
+    "wind_speed_ms": 3.42,
+    "air_temp_c": 31.7,
+    "air_rh_pct": 68.2,
+    "air_pressure_hpa": 1006.3,
+    "rain_rate_mmph": 0.0,
+    "soil_moisture_pct": 24.1,
+    "soil_temp_c": 29.3,
+    "cabinet_temp_c": 44.8,
+    "cabinet_rh_pct": 50.2,
+    "solar_v": 18.6,
+    "battery_v": 12.4
+  },
+  "sim_serial": "243038645779",
+  "sim_rssi": -40
+}
+```
+
+**โครงสร้าง Telemetry Message:**
+- **Metadata**: `device_id`, `ts` (timestamp), `boot_id`, `seq`, `msg_id`
+- **Data**: object ที่มีค่าจาก sensor หลายตัวรวมกัน (1 device = หลาย sensors)
+- **Optional**: `sim_serial`, `sim_rssi` (ข้อมูลการเชื่อมต่อ)
 
 ---
 

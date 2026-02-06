@@ -254,20 +254,98 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 
 ### 🌐 API Mapping
 
+**สำหรับ IoT Device (Ingest):**
 ```
-POST /api/sensors/{id}/data
-GET  /api/sensors/{id}/data?from=&to=
+POST /api/telemetry        (รับ telemetry message แบบเต็ม)
 ```
 
-### 🔄 Business Logic
+**สำหรับ Frontend (Query):**
+```
+GET  /api/sensors/{id}/data?from=&to=  (query time-series)
+GET  /api/stations/{id}/data/latest    (ดูค่าล่าสุดทุก sensor)
+```
+
+### 📡 Telemetry Ingest API
+
+**Endpoint:** `POST /api/telemetry`
+
+**Request Body:**
+```json
+{
+  "device_id": "IG502-ABC123",
+  "ts": "2026-02-01T05:25:12Z",
+  "boot_id": 1706760000,
+  "seq": 1524,
+  "msg_id": "IG502-ABC123-1706760000-1524",
+  "data": {
+    "wind_speed_ms": 3.42,
+    "air_temp_c": 31.7,
+    "air_rh_pct": 68.2,
+    "air_pressure_hpa": 1006.3,
+    "rain_rate_mmph": 0.0,
+    "soil_moisture_pct": 24.1,
+    "soil_temp_c": 29.3,
+    "cabinet_temp_c": 44.8,
+    "cabinet_rh_pct": 50.2,
+    "solar_v": 18.6,
+    "battery_v": 12.4
+  },
+  "sim_serial": "243038645779",
+  "sim_rssi": -40
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Telemetry data ingested successfully",
+  "records_created": 11,
+  "station_id": 5
+}
+```
+
+### 🔄 Business Logic Flow
 
 ```
-Sensor ส่งค่า 
-  → บันทึก SensorData 
-  → ตรวจ Threshold 
-  → ถ้าเกิน 
-  → สร้าง Alert
+1. IoT Device ส่ง Telemetry Message
+   ↓
+2. Backend รับที่ POST /api/telemetry
+   ↓
+3. ค้นหา Station จาก device_id
+   ↓
+4. Parse "data" object → แยกเป็น sensor readings
+   ↓
+5. Map field names → sensor_type:
+   • wind_speed_ms → sensor_type: "wind_speed"
+   • air_temp_c → sensor_type: "air_temperature"
+   • soil_moisture_pct → sensor_type: "soil_moisture"
+   ฯลฯ
+   ↓
+6. สร้าง SENSOR_DATA records (1 message → หลาย records)
+   ↓
+7. ตรวจสอบ Threshold แต่ละค่า
+   ↓
+8. ถ้าค่าเกิน → สร้าง ALERT
+   ↓
+9. Return success response
 ```
+
+### 🗺️ Field Mapping (Telemetry → Sensor Type)
+
+| Telemetry Field | Sensor Type | Unit |
+|----------------|-------------|------|
+| `wind_speed_ms` | `wind_speed` | m/s |
+| `air_temp_c` | `air_temperature` | °C |
+| `air_rh_pct` | `air_humidity` | % |
+| `air_pressure_hpa` | `air_pressure` | hPa |
+| `rain_rate_mmph` | `rainfall` | mm/h |
+| `soil_moisture_pct` | `soil_moisture` | % |
+| `soil_temp_c` | `soil_temperature` | °C |
+| `cabinet_temp_c` | `cabinet_temperature` | °C |
+| `cabinet_rh_pct` | `cabinet_humidity` | % |
+| `solar_v` | `solar_voltage` | V |
+| `battery_v` | `battery_voltage` | V |
 
 ---
 

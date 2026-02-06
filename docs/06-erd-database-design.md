@@ -181,7 +181,39 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 - **DFD:** D2 Sensor Data Database
 - **Use Case:** View Sensor Data (กราฟ time-series)
 
-> **หมายเหตุ:** Time-series data ปริมาณมาก ต้องมี Index
+### 🔄 Data Flow จาก Telemetry → Database:
+
+**ข้อมูลดิบที่รับมา (Telemetry):**
+```json
+{
+  "device_id": "IG502-ABC123",
+  "ts": "2026-02-01T05:25:12Z",
+  "data": {
+    "wind_speed_ms": 3.42,
+    "air_temp_c": 31.7,
+    "soil_moisture_pct": 24.1,
+    ...
+  }
+}
+```
+
+**ข้อมูลหลัง Normalization (ใน Database):**
+
+1 Telemetry Message → **หลาย SensorData Records**
+
+| data_id | sensor_id | value | recorded_at |
+|---------|-----------|-------|-------------|
+| 1001 | 15 (wind_speed) | 3.42 | 2026-02-01 05:25:12 |
+| 1002 | 16 (air_temp) | 31.7 | 2026-02-01 05:25:12 |
+| 1003 | 17 (soil_moisture) | 24.1 | 2026-02-01 05:25:12 |
+| ... | ... | ... | ... |
+
+**เหตุผล:** 
+- ทำให้ query time-series ได้เร็ว (1 sensor, time range)
+- แต่ละ sensor มี data type และ unit ต่างกัน
+- รองรับการเพิ่ม sensor ใหม่ได้ง่าย
+
+> **หมายเหตุ:** Backend จะ **parse และ flatten** telemetry message ให้เป็น normalized records
 
 ---
 
