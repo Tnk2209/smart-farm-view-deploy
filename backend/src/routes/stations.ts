@@ -4,14 +4,16 @@ import {
   getStationById,
   getLatestStationData,
 } from '../database/queries.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 /**
  * GET /api/stations
  * Get all stations
+ * Requires authentication
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const stations = await getAllStations();
     res.json({
@@ -30,8 +32,9 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/stations/:id
  * Get station by ID
+ * Requires authentication
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const stationId = parseInt(req.params.id);
     const station = await getStationById(stationId);
@@ -59,8 +62,9 @@ router.get('/:id', async (req, res) => {
 /**
  * GET /api/stations/:id/data/latest
  * Get latest sensor data for all sensors in a station
+ * Requires authentication
  */
-router.get('/:id/data/latest', async (req, res) => {
+router.get('/:id/data/latest', authenticateToken, async (req, res) => {
   try {
     const stationId = parseInt(req.params.id);
     const data = await getLatestStationData(stationId);

@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { login as apiLogin } from '@/lib/api';
+import { login as apiLogin, logout as apiLogout } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string, role: UserRole) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   hasPermission: (permission: Permission) => boolean;
 }
@@ -35,12 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) : null;
   });
 
-  const login = useCallback(async (username: string, password: string, role: UserRole): Promise<boolean> => {
+  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await apiLogin(username, password, role);
+      const response = await apiLogin(username, password);
       if (response.success && response.data) {
-        setUser(response.data);
-        localStorage.setItem('auth_user', JSON.stringify(response.data));
+        setUser(response.data.user);
+        localStorage.setItem('auth_user', JSON.stringify(response.data.user));
         return true;
       }
       return false;
@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await apiLogout();
     setUser(null);
     localStorage.removeItem('auth_user');
   }, []);

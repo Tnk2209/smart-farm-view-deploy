@@ -72,23 +72,19 @@ export interface Threshold {
   updated_at: string;
 }
 
-// Dashboard summary types
-export interface DashboardSummary {
-  totalStations: number;
-  totalSensors: number;
-  alertsToday: number;
-  highSeverityAlerts: number;
-  stationsByStatus: {
-    normal: number;
-    warning: number;
-    critical: number;
-    offline: number;
-  };
-}
-
 // API Response types
 export interface ApiResponse<T> {
-  data: T;
   success: boolean;
+  data?: T;
   message?: string;
+  error?: string;
+}
+
+export interface DashboardSummary {
+  total_stations: number;
+  total_sensors: number;
+  active_alerts: number;
+  normal_stations: number;
+  warning_stations: number;
+  critical_stations: number;
 }

@@ -5,6 +5,7 @@ import { testConnection, closeConnection } from './database/connection.js';
 import { initializeMqttSubscriber, closeMqttConnection } from './mqtt/subscriber.js';
 
 // Import routes
+import authRouter from './routes/auth.js';
 import stationsRouter from './routes/stations.js';
 import sensorsRouter from './routes/sensors.js';
 import alertsRouter from './routes/alerts.js';
@@ -32,6 +33,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use(`${config.apiPrefix}/auth`, authRouter);
 app.use(`${config.apiPrefix}/stations`, stationsRouter);
 app.use(`${config.apiPrefix}/sensors`, sensorsRouter);
 app.use(`${config.apiPrefix}/alerts`, alertsRouter);

@@ -1,257 +1,318 @@
-// Mock API functions that simulate real backend calls
+// API functions that connect to real backend
 // Based on API Specification from System Design Document (STEP 7)
 
 import { 
   User, Station, Sensor, SensorData, Alert, Threshold, 
   DashboardSummary, ApiResponse, UserRole 
 } from './types';
-import { 
-  mockStations, mockSensors, mockSensorData, mockAlerts, 
-  mockThresholds, mockUsers, getDashboardSummary 
-} from './mockData';
-
-// Simulated API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import { apiFetch, apiConfig } from './apiConfig';
 
 // ============ AUTH API ============
-// POST /api/auth/login
-export const login = async (username: string, password: string, role: UserRole): Promise<ApiResponse<User>> => {
-  await delay(500);
-  
-  // Mock login - always succeeds with selected role
-  const user: User = {
-    user_id: Date.now(),
-    username,
-    email: `${username}@smartagri.th`,
-    role_id: role === 'SUPER_USER' ? 3 : role === 'MANAGER' ? 2 : 1,
-    role,
-    status: 'active',
-    created_at: new Date().toISOString(),
-  };
-  
-  return { data: user, success: true };
+
+/**
+ * POST /api/auth/login
+ * Login with username and password, returns JWT token
+ */
+export const login = async (
+  username: string, 
+  password: string
+): Promise<ApiResponse<{ user: User; token: string }>> => {
+  try {
+    const response = await apiFetch<ApiResponse<{ user: User; token: string }>>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }
+    );
+    
+    // Store token if login successful
+    if (response.success && response.data?.token) {
+      apiConfig.setToken(response.data.token);
+    }
+    
+    return response;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Login failed',
+    };
+  }
+};
+
+/**
+ * POST /api/auth/logout
+ * Logout user (removes token from localStorage)
+ */
+export const logout = async (): Promise<ApiResponse<void>> => {
+  try {
+    await apiFetch<ApiResponse<void>>('/auth/logout', {
+      method: 'POST',
+    });
+    
+    apiConfig.removeToken();
+    
+    return { success: true };
+  } catch (error) {
+    // Even if API call fails, remove token
+    apiConfig.removeToken();
+    return { success: true };
+  }
+};
+
+/**
+ * GET /api/auth/me
+ * Get current user info from token
+ */
+export const getCurrentUser = async (): Promise<ApiResponse<User>> => {
+  try {
+    return await apiFetch<ApiResponse<User>>('/auth/me');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get user',
+    };
+  }
 };
 
 // ============ STATIONS API ============
-// GET /api/stations
+
+/**
+ * GET /api/stations
+ * Get all stations
+ */
 export const getStations = async (): Promise<ApiResponse<Station[]>> => {
-  await delay(300);
-  return { data: mockStations, success: true };
+  try {
+    return await apiFetch<ApiResponse<Station[]>>('/stations');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch stations',
+    };
+  }
 };
 
-// GET /api/stations/{id}
-export const getStationById = async (id: number): Promise<ApiResponse<Station | null>> => {
-  await delay(200);
-  const station = mockStations.find(s => s.station_id === id) || null;
-  return { data: station, success: !!station };
+/**
+ * GET /api/stations/{id}
+ * Get station by ID
+ */
+export const getStationById = async (id: number): Promise<ApiResponse<Station>> => {
+  try {
+    return await apiFetch<ApiResponse<Station>>(`/stations/${id}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station',
+    };
+  }
 };
 
-// POST /api/stations (Manager/Super User only)
-export const createStation = async (station: Partial<Station>): Promise<ApiResponse<Station>> => {
-  await delay(400);
-  const newStation: Station = {
-    station_id: mockStations.length + 1,
-    station_name: station.station_name || 'New Station',
-    province: station.province || 'Unknown',
-    latitude: station.latitude || 13.7563,
-    longitude: station.longitude || 100.5018,
-    status: 'normal',
-    created_at: new Date().toISOString(),
-    sensor_count: 0,
-  };
-  mockStations.push(newStation);
-  return { data: newStation, success: true };
-};
-
-// PUT /api/stations/{id}
-export const updateStation = async (id: number, updates: Partial<Station>): Promise<ApiResponse<Station | null>> => {
-  await delay(300);
-  const index = mockStations.findIndex(s => s.station_id === id);
-  if (index === -1) return { data: null, success: false, message: 'Station not found' };
-  
-  mockStations[index] = { ...mockStations[index], ...updates };
-  return { data: mockStations[index], success: true };
-};
-
-// DELETE /api/stations/{id}
-export const deleteStation = async (id: number): Promise<ApiResponse<boolean>> => {
-  await delay(300);
-  const index = mockStations.findIndex(s => s.station_id === id);
-  if (index === -1) return { data: false, success: false, message: 'Station not found' };
-  
-  mockStations.splice(index, 1);
-  return { data: true, success: true };
+/**
+ * GET /api/stations/{id}/data/latest
+ * Get latest sensor data for all sensors in a station
+ */
+export const getStationLatestData = async (
+  id: number
+): Promise<ApiResponse<any[]>> => {
+  try {
+    return await apiFetch<ApiResponse<any[]>>(`/stations/${id}/data/latest`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station data',
+    };
+  }
 };
 
 // ============ SENSORS API ============
-// GET /api/sensors
-export const getSensors = async (): Promise<ApiResponse<Sensor[]>> => {
-  await delay(300);
-  return { data: mockSensors, success: true };
+
+/**
+ * GET /api/sensors/{id}
+ * Get sensor by ID
+ */
+export const getSensorById = async (id: number): Promise<ApiResponse<Sensor>> => {
+  try {
+    return await apiFetch<ApiResponse<Sensor>>(`/sensors/${id}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch sensor',
+    };
+  }
 };
 
-// GET /api/sensors?station_id={id}
-export const getSensorsByStation = async (stationId: number): Promise<ApiResponse<Sensor[]>> => {
-  await delay(200);
-  const sensors = mockSensors.filter(s => s.station_id === stationId);
-  return { data: sensors, success: true };
-};
-
-// GET /api/sensors/{id}
-export const getSensorById = async (id: number): Promise<ApiResponse<Sensor | null>> => {
-  await delay(200);
-  const sensor = mockSensors.find(s => s.sensor_id === id) || null;
-  return { data: sensor, success: !!sensor };
-};
-
-// GET /api/sensors/{id}/data?from=...&to=...
+/**
+ * GET /api/sensors/{id}/data?from=&to=
+ * Get sensor time-series data
+ */
 export const getSensorData = async (
-  sensorId: number, 
-  from?: string, 
+  id: number,
+  from?: string,
   to?: string
 ): Promise<ApiResponse<SensorData[]>> => {
-  await delay(300);
-  
-  let data = mockSensorData.filter(d => d.sensor_id === sensorId);
-  
-  if (from) {
-    const fromDate = new Date(from);
-    data = data.filter(d => new Date(d.recorded_at) >= fromDate);
+  try {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return await apiFetch<ApiResponse<SensorData[]>>(`/sensors/${id}/data${query}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch sensor data',
+    };
   }
-  
-  if (to) {
-    const toDate = new Date(to);
-    data = data.filter(d => new Date(d.recorded_at) <= toDate);
-  }
-  
-  return { data, success: true };
-};
-
-// POST /api/sensors/{id}/data (for ingesting data - demo only)
-export const addSensorData = async (sensorId: number, value: number): Promise<ApiResponse<SensorData>> => {
-  await delay(200);
-  const newData: SensorData = {
-    data_id: mockSensorData.length + 1,
-    sensor_id: sensorId,
-    value,
-    recorded_at: new Date().toISOString(),
-  };
-  mockSensorData.push(newData);
-  return { data: newData, success: true };
 };
 
 // ============ ALERTS API ============
-// GET /api/alerts
-export const getAlerts = async (filters?: {
-  severity?: string;
-  stationId?: number;
-  sensorId?: number;
-  acknowledged?: boolean;
-}): Promise<ApiResponse<Alert[]>> => {
-  await delay(300);
-  
-  let alerts = [...mockAlerts];
-  
-  if (filters?.severity) {
-    alerts = alerts.filter(a => a.severity === filters.severity);
+
+/**
+ * GET /api/alerts
+ * Get all alerts
+ */
+export const getAlerts = async (limit?: number): Promise<ApiResponse<Alert[]>> => {
+  try {
+    const query = limit ? `?limit=${limit}` : '';
+    return await apiFetch<ApiResponse<Alert[]>>(`/alerts${query}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch alerts',
+    };
   }
-  if (filters?.stationId) {
-    alerts = alerts.filter(a => a.station_id === filters.stationId);
-  }
-  if (filters?.sensorId) {
-    alerts = alerts.filter(a => a.sensor_id === filters.sensorId);
-  }
-  if (filters?.acknowledged !== undefined) {
-    alerts = alerts.filter(a => a.is_acknowledged === filters.acknowledged);
-  }
-  
-  return { data: alerts, success: true };
 };
 
-// GET /api/alerts/{id}
-export const getAlertById = async (id: number): Promise<ApiResponse<Alert | null>> => {
-  await delay(200);
-  const alert = mockAlerts.find(a => a.alert_id === id) || null;
-  return { data: alert, success: !!alert };
+/**
+ * GET /api/alerts/unacknowledged
+ * Get unacknowledged alerts
+ */
+export const getUnacknowledgedAlerts = async (): Promise<ApiResponse<Alert[]>> => {
+  try {
+    return await apiFetch<ApiResponse<Alert[]>>('/alerts/unacknowledged');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch alerts',
+    };
+  }
 };
 
-// PUT /api/alerts/{id}/ack
-export const acknowledgeAlert = async (id: number): Promise<ApiResponse<Alert | null>> => {
-  await delay(300);
-  const alert = mockAlerts.find(a => a.alert_id === id);
-  if (!alert) return { data: null, success: false, message: 'Alert not found' };
-  
-  alert.is_acknowledged = true;
-  return { data: alert, success: true };
+/**
+ * PUT /api/alerts/{id}/ack
+ * Acknowledge an alert
+ */
+export const acknowledgeAlert = async (id: number): Promise<ApiResponse<void>> => {
+  try {
+    return await apiFetch<ApiResponse<void>>(`/alerts/${id}/ack`, {
+      method: 'PUT',
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to acknowledge alert',
+    };
+  }
 };
 
 // ============ THRESHOLDS API ============
-// GET /api/thresholds
+
+/**
+ * GET /api/thresholds
+ * Get all thresholds
+ */
 export const getThresholds = async (): Promise<ApiResponse<Threshold[]>> => {
-  await delay(200);
-  return { data: mockThresholds, success: true };
+  try {
+    return await apiFetch<ApiResponse<Threshold[]>>('/thresholds');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch thresholds',
+    };
+  }
 };
 
-// PUT /api/thresholds/{id}
-export const updateThreshold = async (id: number, updates: Partial<Threshold>): Promise<ApiResponse<Threshold | null>> => {
-  await delay(300);
-  const index = mockThresholds.findIndex(t => t.threshold_id === id);
-  if (index === -1) return { data: null, success: false, message: 'Threshold not found' };
-  
-  mockThresholds[index] = { 
-    ...mockThresholds[index], 
-    ...updates, 
-    updated_at: new Date().toISOString() 
-  };
-  return { data: mockThresholds[index], success: true };
+/**
+ * POST /api/thresholds
+ * Create new threshold (Super User only)
+ */
+export const createThreshold = async (
+  threshold: Partial<Threshold>
+): Promise<ApiResponse<Threshold>> => {
+  try {
+    return await apiFetch<ApiResponse<Threshold>>('/thresholds', {
+      method: 'POST',
+      body: JSON.stringify(threshold),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create threshold',
+    };
+  }
 };
 
-// ============ USERS API ============
-// GET /api/users
-export const getUsers = async (): Promise<ApiResponse<User[]>> => {
-  await delay(300);
-  return { data: mockUsers, success: true };
-};
-
-// POST /api/users (Super User only)
-export const createUser = async (user: Partial<User>): Promise<ApiResponse<User>> => {
-  await delay(400);
-  const newUser: User = {
-    user_id: mockUsers.length + 1,
-    username: user.username || 'newuser',
-    email: user.email || 'newuser@smartagri.th',
-    role_id: user.role_id || 1,
-    role: user.role || 'USER',
-    status: 'active',
-    created_at: new Date().toISOString(),
-  };
-  mockUsers.push(newUser);
-  return { data: newUser, success: true };
-};
-
-// PUT /api/users/{id}
-export const updateUser = async (id: number, updates: Partial<User>): Promise<ApiResponse<User | null>> => {
-  await delay(300);
-  const index = mockUsers.findIndex(u => u.user_id === id);
-  if (index === -1) return { data: null, success: false, message: 'User not found' };
-  
-  mockUsers[index] = { ...mockUsers[index], ...updates };
-  return { data: mockUsers[index], success: true };
-};
-
-// DELETE /api/users/{id}
-export const deleteUser = async (id: number): Promise<ApiResponse<boolean>> => {
-  await delay(300);
-  const index = mockUsers.findIndex(u => u.user_id === id);
-  if (index === -1) return { data: false, success: false, message: 'User not found' };
-  
-  mockUsers.splice(index, 1);
-  return { data: true, success: true };
+/**
+ * PUT /api/thresholds/{id}
+ * Update threshold (Super User only)
+ */
+export const updateThreshold = async (
+  id: number,
+  updates: Partial<Threshold>
+): Promise<ApiResponse<Threshold>> => {
+  try {
+    return await apiFetch<ApiResponse<Threshold>>(`/thresholds/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update threshold',
+    };
+  }
 };
 
 // ============ DASHBOARD API ============
-// GET /api/dashboard/summary
-export const getDashboardData = async (): Promise<ApiResponse<DashboardSummary>> => {
-  await delay(300);
-  return { data: getDashboardSummary(), success: true };
+
+/**
+ * Get dashboard summary
+ * This is a derived endpoint that combines multiple API calls
+ */
+export const getDashboardSummary = async (): Promise<ApiResponse<DashboardSummary>> => {
+  try {
+    const [stationsRes, alertsRes] = await Promise.all([
+      getStations(),
+      getUnacknowledgedAlerts(),
+    ]);
+    
+    if (!stationsRes.success || !alertsRes.success) {
+      throw new Error('Failed to fetch dashboard data');
+    }
+    
+    const stations = stationsRes.data || [];
+    const alerts = alertsRes.data || [];
+    
+    // Calculate summary
+    const totalSensors = stations.reduce((sum, s) => sum + (s.sensor_count || 0), 0);
+    const normalStations = stations.filter(s => s.status === 'normal').length;
+    const warningStations = stations.filter(s => s.status === 'warning').length;
+    const criticalStations = stations.filter(s => s.status === 'critical').length;
+    
+    const summary: DashboardSummary = {
+      total_stations: stations.length,
+      total_sensors: totalSensors,
+      active_alerts: alerts.length,
+      normal_stations: normalStations,
+      warning_stations: warningStations,
+      critical_stations: criticalStations,
+    };
+    
+    return { success: true, data: summary };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch dashboard summary',
+    };
+  }
 };

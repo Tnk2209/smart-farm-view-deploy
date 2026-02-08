@@ -4,14 +4,16 @@ import {
   getSensorDataRange,
   getLatestSensorData,
 } from '../database/queries.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 /**
  * GET /api/sensors/:id
  * Get sensor by ID
+ * Requires authentication
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const sensorId = parseInt(req.params.id);
     const sensor = await getSensorById(sensorId);
@@ -40,8 +42,9 @@ router.get('/:id', async (req, res) => {
  * GET /api/sensors/:id/data
  * Get sensor data within time range
  * Query params: from (ISO date), to (ISO date)
+ * Requires authentication
  */
-router.get('/:id/data', async (req, res) => {
+router.get('/:id/data', authenticateToken, async (req, res) => {
   try {
     const sensorId = parseInt(req.params.id);
     const { from, to } = req.query;
@@ -82,8 +85,9 @@ router.get('/:id/data', async (req, res) => {
 /**
  * GET /api/sensors/:id/data/latest
  * Get latest sensor data
+ * Requires authentication
  */
-router.get('/:id/data/latest', async (req, res) => {
+router.get('/:id/data/latest', authenticateToken, async (req, res) => {
   try {
     const sensorId = parseInt(req.params.id);
     const data = await getLatestSensorData(sensorId);

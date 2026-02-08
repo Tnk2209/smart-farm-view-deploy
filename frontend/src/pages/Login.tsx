@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Leaf, Loader2 } from 'lucide-react';
 import { useThemeToggle } from '@/contexts/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
@@ -14,7 +12,6 @@ import { Sun, Moon } from 'lucide-react';
 export default function LoginPage() {
   const [username, setUsername] = useState('demo');
   const [password, setPassword] = useState('demo123');
-  const [role, setRole] = useState<UserRole>('USER');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -28,11 +25,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const success = await login(username, password, role);
+      const success = await login(username, password);
       if (success) {
         navigate('/dashboard');
       } else {
-        setError('Login failed. Please try again.');
+        setError('Invalid username or password.');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -69,7 +66,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle>Welcome Back</CardTitle>
             <CardDescription>
-              Sign in to access the monitoring dashboard. This is a demo - select your role to explore.
+              Sign in to access the monitoring dashboard with your credentials.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -98,35 +95,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Role (Demo Selector)</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USER">
-                      <div className="flex flex-col items-start">
-                        <span>User</span>
-                        <span className="text-xs text-muted-foreground">View dashboard & sensor data</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="MANAGER">
-                      <div className="flex flex-col items-start">
-                        <span>Manager</span>
-                        <span className="text-xs text-muted-foreground">Manage stations & sensors</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="SUPER_USER">
-                      <div className="flex flex-col items-start">
-                        <span>Super User</span>
-                        <span className="text-xs text-muted-foreground">Full system access</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
               )}
@@ -144,9 +112,23 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 pt-6 border-t">
-              <p className="text-sm text-muted-foreground text-center">
-                <strong>Demo Mode:</strong> Any credentials work. Select a role to explore different access levels.
+              <p className="text-sm text-muted-foreground mb-3">
+                <strong>Demo Accounts:</strong>
               </p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between bg-muted p-2 rounded">
+                  <span>👤 demo / demo123</span>
+                  <span className="text-xs">(User)</span>
+                </div>
+                <div className="flex justify-between bg-muted p-2 rounded">
+                  <span>👨‍💼 manager / demo123</span>
+                  <span className="text-xs">(Manager)</span>
+                </div>
+                <div className="flex justify-between bg-muted p-2 rounded">
+                  <span>👑 admin / demo123</span>
+                  <span className="text-xs">(Super User)</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

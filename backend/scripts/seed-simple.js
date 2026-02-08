@@ -1,5 +1,6 @@
 // Simple seed script that works without tsx
 import pg from 'pg';
+import bcrypt from 'bcrypt';
 import 'dotenv/config';
 
 const { Pool } = pg;
@@ -25,13 +26,28 @@ try {
   `);
   console.log('✅ Roles inserted\n');
 
-  console.log('📝 Inserting sample user...');
-  await client.query(`
-    INSERT INTO "User" (username, password_hash, email, role_id, status) 
-    VALUES ('admin', 'hashed_password_here', 'admin@smartfarm.com', 3, 'active')
-    ON CONFLICT (username) DO NOTHING
-  `);
-  console.log('✅ Sample user inserted\n');
+  console.log('📝 Inserting demo users...');
+  
+  // Hash password for all demo users
+  const demoPassword = await bcrypt.hash('demo123', 10);
+  
+  const users = [
+    { username: 'demo', email: 'demo@smartfarm.com', roleId: 1 },
+    { username: 'manager', email: 'manager@smartfarm.com', roleId: 2 },
+    { username: 'admin', email: 'admin@smartfarm.com', roleId: 3 },
+  ];
+
+  for (const user of users) {
+    await client.query(
+      `INSERT INTO "User" (username, password_hash, email, role_id, status) 
+       VALUES ($1, $2, $3, $4, 'active')
+       ON CONFLICT (username) 
+       DO UPDATE SET password_hash = EXCLUDED.password_hash, email = EXCLUDED.email`,
+      [user.username, demoPassword, user.email, user.roleId]
+    );
+  }
+  console.log(`✅ ${users.length} demo users inserted`);
+  console.log('   📌 All demo users use password: "demo123"\n');
 
   console.log('📝 Inserting sample stations...');
   const stations = [

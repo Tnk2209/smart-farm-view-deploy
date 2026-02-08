@@ -160,6 +160,46 @@ export async function getAllThresholds(): Promise<Threshold[]> {
   return result.rows;
 }
 
+export async function createThreshold(
+  sensorType: string,
+  minValue: number,
+  maxValue: number,
+  createdBy: number
+): Promise<Threshold> {
+  const result = await pool.query<Threshold>(
+    `INSERT INTO threshold (sensor_type, min_value, max_value, created_by) 
+     VALUES ($1, $2, $3, $4) 
+     RETURNING *`,
+    [sensorType, minValue, maxValue, createdBy]
+  );
+  return result.rows[0];
+}
+
+export async function updateThreshold(
+  thresholdId: number,
+  minValue: number,
+  maxValue: number
+): Promise<Threshold | null> {
+  const result = await pool.query<Threshold>(
+    `UPDATE threshold 
+     SET min_value = $1, max_value = $2, updated_at = CURRENT_TIMESTAMP 
+     WHERE threshold_id = $3 
+     RETURNING *`,
+    [minValue, maxValue, thresholdId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getThresholdById(
+  thresholdId: number
+): Promise<Threshold | null> {
+  const result = await pool.query<Threshold>(
+    'SELECT * FROM threshold WHERE threshold_id = $1',
+    [thresholdId]
+  );
+  return result.rows[0] || null;
+}
+
 // ==================== ALERT QUERIES ====================
 
 export async function insertAlert(
@@ -218,4 +258,53 @@ export async function acknowledgeAlert(alertId: number): Promise<void> {
     'UPDATE alert SET is_acknowledged = TRUE WHERE alert_id = $1',
     [alertId]
   );
+}
+
+// ==================== USER QUERIES ====================
+
+export async function getUserByUsername(username: string): Promise<User | null> {
+  const result = await pool.query<User>(
+    `SELECT u.*, r.role_name as role 
+     FROM "User" u 
+     JOIN "Role" r ON u.role_id = r.role_id 
+     WHERE u.username = $1`,
+    [username]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getUserById(userId: number): Promise<User | null> {
+  const result = await pool.query<User>(
+    `SELECT u.*, r.role_name as role 
+     FROM "User" u 
+     JOIN "Role" r ON u.role_id = r.role_id 
+     WHERE u.user_id = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getAllUsers(): Promise<User[]> {
+  const result = await pool.query<User>(
+    `SELECT u.*, r.role_name as role 
+     FROM "User" u 
+     JOIN "Role" r ON u.role_id = r.role_id 
+     ORDER BY u.username`
+  );
+  return result.rows;
+}
+
+export async function createUser(
+  username: string,
+  passwordHash: string,
+  email: string,
+  roleId: number
+): Promise<User> {
+  const result = await pool.query<User>(
+    `INSERT INTO "User" (username, password_hash, email, role_id, status) 
+     VALUES ($1, $2, $3, $4, 'active') 
+     RETURNING *`,
+    [username, passwordHash, email, roleId]
+  );
+  return result.rows[0];
 }

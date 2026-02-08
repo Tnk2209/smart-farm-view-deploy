@@ -72,6 +72,7 @@ export interface User {
   password_hash: string;
   email: string;
   role_id: number;
+  role: UserRole; // Role name from join with Role table
   status: 'active' | 'inactive' | 'suspended';
   created_at: string;
 }

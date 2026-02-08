@@ -5,6 +5,7 @@ import {
   getUnacknowledgedAlerts,
   acknowledgeAlert,
 } from '../database/queries.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -12,8 +13,9 @@ const router = express.Router();
  * GET /api/alerts
  * Get recent alerts (default 50)
  * Query params: limit (optional)
+ * Requires authentication
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const alerts = await getRecentAlerts(limit);
@@ -35,8 +37,9 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/alerts/unacknowledged
  * Get all unacknowledged alerts
+ * Requires authentication
  */
-router.get('/unacknowledged', async (req, res) => {
+router.get('/unacknowledged', authenticateToken, async (req, res) => {
   try {
     const alerts = await getUnacknowledgedAlerts();
     
@@ -57,8 +60,9 @@ router.get('/unacknowledged', async (req, res) => {
 /**
  * GET /api/alerts/station/:stationId
  * Get alerts for specific station
+ * Requires authentication
  */
-router.get('/station/:stationId', async (req, res) => {
+router.get('/station/:stationId', authenticateToken, async (req, res) => {
   try {
     const stationId = parseInt(req.params.stationId);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -81,8 +85,9 @@ router.get('/station/:stationId', async (req, res) => {
 /**
  * POST /api/alerts/:id/acknowledge
  * Acknowledge an alert
+ * Requires: MANAGER or SUPER_USER role
  */
-router.post('/:id/acknowledge', async (req, res) => {
+router.post('/:id/acknowledge', authenticateToken, requireRole('MANAGER', 'SUPER_USER'), async (req, res) => {
   try {
     const alertId = parseInt(req.params.id);
     await acknowledgeAlert(alertId);

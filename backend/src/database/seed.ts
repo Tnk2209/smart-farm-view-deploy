@@ -3,6 +3,7 @@ console.log('📂 seed.ts file loaded successfully');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
 import { pool } from './connection.js';
+import { hashPassword } from '../utils/auth.js';
 import type { SensorType } from '../types.js';
 
 /**
@@ -23,14 +24,28 @@ export async function seedDatabase() {
     `);
     console.log('✅ Roles inserted\n');
 
-    // 2. Insert Sample User
-    console.log('📝 Inserting sample user...');
-    await client.query(`
-      INSERT INTO "User" (username, password_hash, email, role_id, status) 
-      VALUES ('admin', 'hashed_password_here', 'admin@smartfarm.com', 3, 'active')
-      ON CONFLICT (username) DO NOTHING
-    `);
-    console.log('✅ Sample user inserted\n');
+    // 2. Insert Demo Users with hashed passwords
+    console.log('📝 Inserting demo users...');
+    
+    // Hash passwords for demo users
+    const demoPassword = await hashPassword('demo123'); // Same password for all demo users
+    
+    const users = [
+      { username: 'demo', email: 'demo@smartfarm.com', role: 'USER', roleId: 1 },
+      { username: 'manager', email: 'manager@smartfarm.com', role: 'MANAGER', roleId: 2 },
+      { username: 'admin', email: 'admin@smartfarm.com', role: 'SUPER_USER', roleId: 3 },
+    ];
+
+    for (const user of users) {
+      await client.query(
+        `INSERT INTO "User" (username, password_hash, email, role_id, status) 
+         VALUES ($1, $2, $3, $4, 'active')
+         ON CONFLICT (username) DO NOTHING`,
+        [user.username, demoPassword, user.email, user.roleId]
+      );
+    }
+    console.log(`✅ ${users.length} demo users inserted`);
+    console.log('   📌 All demo users use password: "demo123"\n');
 
     // 3. Insert Sample Stations (3 stations for demo)
     console.log('📝 Inserting sample stations...');
@@ -129,6 +144,7 @@ export async function seedDatabase() {
 
     console.log('🎉 Database seeded successfully!');
     console.log(`\n📊 Summary:`);
+    console.log(`   - Users: ${users.length} (password: demo123)`);
     console.log(`   - Stations: ${stations.length}`);
     console.log(`   - Sensors: ${sensorCount}`);
     console.log(`   - Thresholds: ${thresholds.length}`);
