@@ -29,25 +29,34 @@ export function initializeMqttSubscriber(): void {
   // Connection successful
   mqttClient.on('connect', () => {
     console.log('✅ Connected to MQTT broker');
+    console.log(`📍 Broker: ${config.mqtt.brokerUrl}`);
+    console.log(`📋 Topic to subscribe: "${config.mqtt.topic}"`);
+    console.log(`📏 Topic length: ${config.mqtt.topic.length} characters`);
     
     // Subscribe to telemetry topic
-    mqttClient!.subscribe(config.mqtt.topic, (err) => {
+    mqttClient!.subscribe(config.mqtt.topic, { qos: 1 }, (err, granted) => {
       if (err) {
         console.error('❌ Failed to subscribe to topic:', err);
       } else {
-        console.log(`📡 Subscribed to topic: ${config.mqtt.topic}`);
+        console.log(`📡 Subscribed successfully!`);
+        console.log(`   Granted subscriptions:`, granted);
+        console.log(`🎯 Waiting for messages on: ${config.mqtt.topic}\n`);
       }
     });
   });
 
   // Receive message
   mqttClient.on('message', async (topic, message) => {
-    console.log(`\n📨 Received message on topic: ${topic}`);
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`📨 MQTT MESSAGE RECEIVED!`);
+    console.log(`📍 Topic: ${topic}`);
+    console.log(`📦 Raw message: ${message.toString()}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
     try {
       // Parse JSON payload
       const payload = JSON.parse(message.toString());
-      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+      console.log('📦 Parsed payload:', JSON.stringify(payload, null, 2));
 
       // Validate telemetry structure
       if (!validateTelemetryMessage(payload)) {

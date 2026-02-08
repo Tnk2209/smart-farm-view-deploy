@@ -1,4 +1,11 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Load .env from backend directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenvConfig({ path: join(__dirname, '..', '.env') });
 
 interface Config {
   port: number;
@@ -35,10 +42,10 @@ export const config: Config = {
     ssl: process.env.DB_SSL === 'true',
   },
   mqtt: {
-    brokerUrl: process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883',
+    brokerUrl: process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883',
     username: process.env.MQTT_USERNAME,
     password: process.env.MQTT_PASSWORD,
-    topic: process.env.MQTT_TOPIC || 'smartfarm/telemetry/#',
+    topic: process.env.MQTT_TOPIC || 'smartfarm/telemetry/#', // เปลี่ยนกลับมาใช้ env variable
   },
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
