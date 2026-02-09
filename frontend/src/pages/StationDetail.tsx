@@ -180,36 +180,41 @@ export default function StationDetail() {
                 </p>
               ) : (
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {latestData.map((data) => (
-                    <Link 
-                      key={data.sensor_id}
-                      to={`/sensors/${data.sensor_id}`}
-                      className="block"
-                    >
-                      <Card className="hover:bg-muted/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-start justify-between">
-                              <div className="rounded-lg bg-primary/10 p-2">
-                                <SensorIcon type={data.sensor_type} className="h-5 w-5 text-primary" />
+                  {latestData.map((item, index) => {
+                    const { sensor, latestData: data } = item;
+                    return (
+                      <Link 
+                        key={`${sensor.sensor_id}-${index}`}
+                        to={`/sensors/${sensor.sensor_id}`}
+                        className="block"
+                      >
+                        <Card className="hover:bg-muted/50 transition-colors">
+                          <CardContent className="p-4">
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-start justify-between">
+                                <div className="rounded-lg bg-primary/10 p-2">
+                                  <SensorIcon type={sensor.sensor_type} className="h-5 w-5 text-primary" />
+                                </div>
+                                <StatusBadge status={sensor.status || 'active'} size="sm" />
                               </div>
-                              <StatusBadge status={data.sensor_status || 'active'} size="sm" />
-                            </div>
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm leading-tight">
-                                {sensorTypeLabels[data.sensor_type]}
-                              </p>
-                              {data.value !== null && (
-                                <p className="text-lg font-bold text-primary">
-                                  {data.value} {sensorTypeUnits[data.sensor_type]}
+                              <div className="space-y-1">
+                                <p className="font-medium text-sm leading-tight">
+                                  {sensorTypeLabels[sensor.sensor_type]}
                                 </p>
-                              )}
+                                {data?.value !== undefined && data?.value !== null && (
+                                  <p className="text-lg font-bold text-primary">
+                                    {sensor.sensor_type === 'gate_door' 
+                                      ? (Number(data.value) === 1 ? 'เปิด' : 'ปิด') 
+                                      : Number(data.value).toFixed(2)} {sensorTypeUnits[sensor.sensor_type]}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, Fragment } from 'react';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Separator } from '@/components/ui/separator';
@@ -52,16 +52,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   const displayName = isId ? `#${segment}` : name;
 
                   return (
-                    <BreadcrumbItem key={path}>
+                    <Fragment key={path}>
                       {index > 0 && <BreadcrumbSeparator />}
-                      {isLast ? (
-                        <BreadcrumbPage>{displayName}</BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink asChild>
-                          <Link to={path}>{displayName}</Link>
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
+                      <BreadcrumbItem>
+                        {isLast ? (
+                          <BreadcrumbPage>{displayName}</BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink asChild>
+                            <Link to={path}>{displayName}</Link>
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                    </Fragment>
                   );
                 })}
               </BreadcrumbList>
