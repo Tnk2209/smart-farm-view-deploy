@@ -30,6 +30,7 @@ const telemetryMessage = {
     cabinet_rh_pct: 50.2 + Math.random() * 10,
     solar_v: 18.6 + Math.random() * 3,
     battery_v: 12.4 + Math.random() * 0.5,
+    gate_door: Math.random() > 0.5 ? 1 : 0,
   },
   sim_serial: '243038645779',
   sim_rssi: -40 + Math.floor(Math.random() * 20),

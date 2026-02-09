@@ -97,6 +97,7 @@ export async function seedDatabase() {
       'cabinet_humidity',
       'solar_voltage',
       'battery_voltage',
+      'gate_door',
     ];
 
     const stationResult = await client.query('SELECT station_id FROM station');
@@ -130,6 +131,7 @@ export async function seedDatabase() {
       { type: 'cabinet_humidity', min: 35, max: 65 },
       { type: 'solar_voltage', min: 12, max: 24 },
       { type: 'battery_voltage', min: 11.5, max: 13.5 },
+      { type: 'gate_door', min: 0, max: 1 },
     ];
 
     for (const threshold of thresholds) {

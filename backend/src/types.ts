@@ -16,7 +16,8 @@ export type SensorType =
   | 'cabinet_temperature'
   | 'cabinet_humidity'
   | 'solar_voltage'
-  | 'battery_voltage';
+  | 'battery_voltage'
+  | 'gate_door';
 
 // Database Models
 export interface Station {
@@ -101,6 +102,7 @@ export interface TelemetryMessage {
     cabinet_rh_pct?: number;
     solar_v?: number;
     battery_v?: number;
+    gate_door?: number;
   };
   sim_serial?: string;
   sim_rssi?: number;
@@ -119,6 +121,7 @@ export const TELEMETRY_FIELD_MAPPING: Record<string, SensorType> = {
   cabinet_rh_pct: 'cabinet_humidity',
   solar_v: 'solar_voltage',
   battery_v: 'battery_voltage',
+  gate_door: 'gate_door',
 };
 
 // API Response Types
@@ -150,4 +153,5 @@ export const SENSOR_UNITS: Record<SensorType, string> = {
   cabinet_humidity: '%',
   solar_voltage: 'V',
   battery_voltage: 'V',
+  gate_door: '',
 };
