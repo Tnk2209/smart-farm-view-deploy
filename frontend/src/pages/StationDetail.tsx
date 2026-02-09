@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getStationById, getSensorsByStation, getAlerts } from '@/lib/api';
-import { Station, Sensor, Alert, SensorData } from '@/lib/types';
-import { mockSensorData } from '@/lib/mockData';
+import { getStationById, getStationLatestData, getAlerts } from '@/lib/api';
+import { Station, Sensor, Alert } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
 import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
@@ -22,32 +21,10 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function StationDetail() {
   const { id } = useParams<{ id: string }>();
   const [station, setStation] = useState<Station | null>(null);
-  const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [latestData, setLatestData] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [, setUpdateTrigger] = useState(0); // Force re-render for live data
   const { hasPermission } = useAuth();
-
-  // Auto-refresh sensor values every 5 seconds for live updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setUpdateTrigger(prev => prev + 1);
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Get latest sensor value
-  const getLatestSensorValue = (sensorId: number): { value: number; unit: string } | null => {
-    const sensorDataPoints = mockSensorData
-      .filter(d => d.sensor_id === sensorId)
-      .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
-    
-    if (sensorDataPoints.length === 0) return null;
-    
-    const latest = sensorDataPoints[0];
-    return { value: latest.value, unit: latest.unit || '' };
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,15 +32,19 @@ export default function StationDetail() {
 
       try {
         const stationId = parseInt(id);
-        const [stationRes, sensorsRes, alertsRes] = await Promise.all([
+        const [stationRes, latestDataRes, alertsRes] = await Promise.all([
           getStationById(stationId),
-          getSensorsByStation(stationId),
-          getAlerts({ stationId }),
+          getStationLatestData(stationId),
+          getAlerts(),
         ]);
 
         if (stationRes.success && stationRes.data) setStation(stationRes.data);
-        if (sensorsRes.success) setSensors(sensorsRes.data);
-        if (alertsRes.success) setAlerts(alertsRes.data.slice(0, 5));
+        if (latestDataRes.success && latestDataRes.data) setLatestData(latestDataRes.data);
+        if (alertsRes.success && alertsRes.data) {
+          // Filter alerts for this station only
+          const stationAlerts = alertsRes.data.filter(a => a.station_id === stationId);
+          setAlerts(stationAlerts.slice(0, 5));
+        }
       } catch (error) {
         console.error('Failed to fetch station data:', error);
       } finally {
@@ -186,25 +167,23 @@ export default function StationDetail() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Thermometer className="h-5 w-5" />
-                Sensors ({sensors.length})
+                Sensors ({latestData.length})
               </CardTitle>
               <CardDescription>
                 Monitoring devices installed at this station
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {sensors.length === 0 ? (
+              {latestData.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   No sensors installed at this station
                 </p>
               ) : (
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {sensors.map((sensor) => {
-                    const latestValue = getLatestSensorValue(sensor.sensor_id);
-                    return (
+                  {latestData.map((data) => (
                     <Link 
-                      key={sensor.sensor_id}
-                      to={`/sensors/${sensor.sensor_id}`}
+                      key={data.sensor_id}
+                      to={`/sensors/${data.sensor_id}`}
                       className="block"
                     >
                       <Card className="hover:bg-muted/50 transition-colors">
@@ -212,17 +191,17 @@ export default function StationDetail() {
                           <div className="flex flex-col gap-2">
                             <div className="flex items-start justify-between">
                               <div className="rounded-lg bg-primary/10 p-2">
-                                <SensorIcon type={sensor.sensor_type} className="h-5 w-5 text-primary" />
+                                <SensorIcon type={data.sensor_type} className="h-5 w-5 text-primary" />
                               </div>
-                              <StatusBadge status={sensor.status} size="sm" />
+                              <StatusBadge status={data.sensor_status || 'active'} size="sm" />
                             </div>
                             <div className="space-y-1">
                               <p className="font-medium text-sm leading-tight">
-                                {sensorTypeLabels[sensor.sensor_type]}
+                                {sensorTypeLabels[data.sensor_type]}
                               </p>
-                              {latestValue && (
+                              {data.value !== null && (
                                 <p className="text-lg font-bold text-primary">
-                                  {latestValue.value} {latestValue.unit}
+                                  {data.value} {sensorTypeUnits[data.sensor_type]}
                                 </p>
                               )}
                             </div>
@@ -230,7 +209,7 @@ export default function StationDetail() {
                         </CardContent>
                       </Card>
                     </Link>
-                  )})}
+                  ))}
                 </div>
               )}
             </CardContent>

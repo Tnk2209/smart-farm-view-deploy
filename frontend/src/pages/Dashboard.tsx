@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { StatCard } from '@/components/StatCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
-import { getDashboardData, getAlerts, getStations } from '@/lib/api';
+import { getDashboardSummary, getAlerts, getStations } from '@/lib/api';
 import { DashboardSummary, Alert, Station } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,14 +36,14 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [summaryRes, alertsRes, stationsRes] = await Promise.all([
-          getDashboardData(),
+          getDashboardSummary(),
           getAlerts(),
           getStations(),
         ]);
 
-        if (summaryRes.success) setSummary(summaryRes.data);
-        if (alertsRes.success) setRecentAlerts(alertsRes.data.slice(0, 5));
-        if (stationsRes.success) setStations(stationsRes.data);
+        if (summaryRes.success && summaryRes.data) setSummary(summaryRes.data);
+        if (alertsRes.success && alertsRes.data) setRecentAlerts(alertsRes.data.slice(0, 5));
+        if (stationsRes.success && stationsRes.data) setStations(stationsRes.data);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -76,10 +76,9 @@ export default function Dashboard() {
   }
 
   const statusData = summary ? [
-    { name: 'Normal', value: summary.stationsByStatus.normal, fill: 'hsl(var(--chart-1))' },
-    { name: 'Warning', value: summary.stationsByStatus.warning, fill: 'hsl(var(--chart-5))' },
-    { name: 'Critical', value: summary.stationsByStatus.critical, fill: 'hsl(var(--destructive))' },
-    { name: 'Offline', value: summary.stationsByStatus.offline, fill: 'hsl(var(--muted))' },
+    { name: 'Normal', value: summary.normal_stations, fill: 'hsl(var(--chart-1))' },
+    { name: 'Warning', value: summary.warning_stations, fill: 'hsl(var(--chart-5))' },
+    { name: 'Critical', value: summary.critical_stations, fill: 'hsl(var(--destructive))' },
   ].filter(d => d.value > 0) : [];
 
   // Provincial summary - top 5 provinces by station count
@@ -108,29 +107,29 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Stations"
-            value={summary?.totalStations || 0}
+            value={summary?.total_stations || 0}
             subtitle="Across Thailand"
             icon={Radio}
             variant="default"
           />
           <StatCard
             title="Total Sensors"
-            value={summary?.totalSensors || 0}
+            value={summary?.total_sensors || 0}
             subtitle="Active monitoring"
             icon={Thermometer}
             variant="success"
           />
           <StatCard
-            title="Alerts Today"
-            value={summary?.alertsToday || 0}
-            subtitle="Requires attention"
+            title="Active Alerts"
+            value={summary?.active_alerts || 0}
+            subtitle="Unacknowledged"
             icon={AlertTriangle}
             variant="warning"
           />
           <StatCard
-            title="High Severity"
-            value={summary?.highSeverityAlerts || 0}
-            subtitle="Critical alerts"
+            title="Critical Status"
+            value={summary?.critical_stations || 0}
+            subtitle="Requires attention"
             icon={AlertCircle}
             variant="danger"
           />
