@@ -4,8 +4,9 @@ import {
   getAlertsByStationId,
   getUnacknowledgedAlerts,
   acknowledgeAlert,
+  getAlertById,
 } from '../database/queries.js';
-import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -83,13 +84,24 @@ router.get('/station/:stationId', authenticateToken, async (req, res) => {
 });
 
 /**
- * POST /api/alerts/:id/acknowledge
+ * PUT /api/alerts/:id/ack
  * Acknowledge an alert
- * Requires: MANAGER or SUPER_USER role
+ * ตามเอกสาร: 07-data-model-api-design.md#alerts
+ * Access: All authenticated users
+ * 
+ * หมายเหตุ: เอกสารระบุเป็น PUT /api/alerts/:id/ack ไม่ใช่ POST
  */
-router.post('/:id/acknowledge', authenticateToken, requireRole('MANAGER', 'SUPER_USER'), async (req, res) => {
+router.put('/:id/ack', authenticateToken, async (req, res) => {
   try {
     const alertId = parseInt(req.params.id);
+    
+    if (isNaN(alertId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid alert ID',
+      });
+    }
+    
     await acknowledgeAlert(alertId);
     
     res.json({
@@ -101,6 +113,45 @@ router.post('/:id/acknowledge', authenticateToken, requireRole('MANAGER', 'SUPER
     res.status(500).json({
       success: false,
       error: 'Failed to acknowledge alert',
+    });
+  }
+});
+
+/**
+ * GET /api/alerts/:id
+ * Get alert by ID
+ * ตามเอกสาร: 07-data-model-api-design.md#alerts
+ * Access: All authenticated users
+ */
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const alertId = parseInt(req.params.id);
+    
+    if (isNaN(alertId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid alert ID',
+      });
+    }
+    
+    const alert = await getAlertById(alertId);
+    
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        error: 'Alert not found',
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: alert,
+    });
+  } catch (error) {
+    console.error('Error fetching alert:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch alert',
     });
   }
 });

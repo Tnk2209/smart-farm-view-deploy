@@ -38,6 +38,40 @@ export async function updateStationStatus(
   );
 }
 
+export async function createStation(
+  deviceId: string,
+  stationName: string,
+  province: string,
+  latitude: number,
+  longitude: number
+): Promise<Station> {
+  const result = await pool.query<Station>(
+    `INSERT INTO station (device_id, station_name, province, latitude, longitude, status) 
+     VALUES ($1, $2, $3, $4, $5, 'normal') 
+     RETURNING *`,
+    [deviceId, stationName, province, latitude, longitude]
+  );
+  return result.rows[0];
+}
+
+export async function updateStation(
+  stationId: number,
+  stationName: string,
+  province: string,
+  latitude: number,
+  longitude: number,
+  status: Station['status']
+): Promise<Station | null> {
+  const result = await pool.query<Station>(
+    `UPDATE station 
+     SET station_name = $1, province = $2, latitude = $3, longitude = $4, status = $5 
+     WHERE station_id = $6 
+     RETURNING *`,
+    [stationName, province, latitude, longitude, status, stationId]
+  );
+  return result.rows[0] || null;
+}
+
 // ==================== SENSOR QUERIES ====================
 
 export async function getSensorsByStationId(stationId: number): Promise<Sensor[]> {
@@ -63,6 +97,41 @@ export async function findSensorByStationAndType(
   const result = await pool.query<Sensor>(
     'SELECT * FROM sensor WHERE station_id = $1 AND sensor_type = $2',
     [stationId, sensorType]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getAllSensors(): Promise<Sensor[]> {
+  const result = await pool.query<Sensor>(
+    'SELECT * FROM sensor ORDER BY station_id, sensor_type'
+  );
+  return result.rows;
+}
+
+export async function createSensor(
+  stationId: number,
+  sensorType: string
+): Promise<Sensor> {
+  const result = await pool.query<Sensor>(
+    `INSERT INTO sensor (station_id, sensor_type, status) 
+     VALUES ($1, $2, 'active') 
+     RETURNING *`,
+    [stationId, sensorType]
+  );
+  return result.rows[0];
+}
+
+export async function updateSensor(
+  sensorId: number,
+  sensorType: string,
+  status: Sensor['status']
+): Promise<Sensor | null> {
+  const result = await pool.query<Sensor>(
+    `UPDATE sensor 
+     SET sensor_type = $1, status = $2 
+     WHERE sensor_id = $3 
+     RETURNING *`,
+    [sensorType, status, sensorId]
   );
   return result.rows[0] || null;
 }
@@ -244,6 +313,14 @@ export async function getRecentAlerts(limit: number = 50): Promise<Alert[]> {
   return result.rows;
 }
 
+export async function getAlertById(alertId: number): Promise<Alert | null> {
+  const result = await pool.query<Alert>(
+    'SELECT * FROM alert WHERE alert_id = $1',
+    [alertId]
+  );
+  return result.rows[0] || null;
+}
+
 export async function getUnacknowledgedAlerts(): Promise<Alert[]> {
   const result = await pool.query<Alert>(
     `SELECT * FROM alert 
@@ -307,4 +384,48 @@ export async function createUser(
     [username, passwordHash, email, roleId]
   );
   return result.rows[0];
+}
+
+export async function updateUser(
+  userId: number,
+  username: string,
+  email: string,
+  roleId: number,
+  status: User['status']
+): Promise<User | null> {
+  const result = await pool.query<User>(
+    `UPDATE "User" 
+     SET username = $1, email = $2, role_id = $3, status = $4 
+     WHERE user_id = $5 
+     RETURNING *`,
+    [username, email, roleId, status, userId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateUserPassword(
+  userId: number,
+  passwordHash: string
+): Promise<void> {
+  await pool.query(
+    'UPDATE "User" SET password_hash = $1 WHERE user_id = $2',
+    [passwordHash, userId]
+  );
+}
+
+// ==================== ROLE QUERIES ====================
+
+export async function getAllRoles(): Promise<Role[]> {
+  const result = await pool.query<Role>(
+    'SELECT * FROM "Role" ORDER BY role_id'
+  );
+  return result.rows;
+}
+
+export async function getRoleById(roleId: number): Promise<Role | null> {
+  const result = await pool.query<Role>(
+    'SELECT * FROM "Role" WHERE role_id = $1',
+    [roleId]
+  );
+  return result.rows[0] || null;
 }
