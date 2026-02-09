@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { getUsers, createUser, updateUser, getRoles } from '@/lib/api';
 import { User, UserRole, Role } from '@/lib/types';
-import { getRoleDisplayName, getRoleBadgeVariant } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,15 +44,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, Shield, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { toast } = useToast();
@@ -203,7 +204,7 @@ export default function AdminUsers() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete user.",
+        description: "Failed to update status.",
         variant: "destructive",
       });
     }
@@ -230,10 +231,36 @@ export default function AdminUsers() {
     });
   };
 
-  const filteredUsers = users.filter(user =>
-    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  const getRoleBadgeInfo = (role: UserRole) => {
+    switch (role) {
+      case 'SUPER_USER':
+        return { 
+          label: 'Super User', 
+          className: 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200',
+          icon: ShieldCheck
+        };
+      case 'MANAGER':
+        return { 
+          label: 'Manager', 
+          className: 'bg-orange-100 text-orange-800 hover:bg-orange-100 border-orange-200',
+          icon: Shield
+        };
+      default:
+        return { 
+          label: 'User', 
+          className: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200',
+          icon: UserIcon
+        };
+    }
+  };
 
   if (loading) {
     return (
@@ -254,21 +281,21 @@ export default function AdminUsers() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
             <p className="text-muted-foreground">
-              Manage system users and their access levels
+              Manage system users, roles, and access permissions
             </p>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button onClick={resetForm} className="shadow-sm">
                 <Plus className="mr-2 h-4 w-4" />
-                Add User
+                Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system.
+                  Add a new user to the system. They will receive an email with login details.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -278,7 +305,7 @@ export default function AdminUsers() {
                     id="username"
                     value={formData.username}
                     onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                    placeholder="Enter username"
+                    placeholder="johndoe"
                   />
                 </div>
                 <div className="space-y-2">
@@ -288,7 +315,7 @@ export default function AdminUsers() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter email"
+                    placeholder="john@example.com"
                   />
                 </div>
                 <div className="space-y-2">
@@ -298,7 +325,7 @@ export default function AdminUsers() {
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="Enter password"
+                    placeholder="••••••••"
                   />
                 </div>
                 <div className="space-y-2">
@@ -324,193 +351,240 @@ export default function AdminUsers() {
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreate}>Create User</Button>
+                <Button onClick={handleCreate}>Create Account</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Search */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+        {/* Users Table Card */}
+        <Card className="shadow-sm border-muted/60">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="h-5 w-5 text-primary" />
+                All Users ({filteredUsers.length})
+              </CardTitle>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-[150px] h-9">
+                    <SelectValue placeholder="All Roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="SUPER_USER">Super User</SelectItem>
+                    <SelectItem value="MANAGER">Manager</SelectItem>
+                    <SelectItem value="USER">User</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 w-[250px] h-9"
+                  />
+                </div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              All Users ({filteredUsers.length})
-            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="pl-6">User Profile</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Joined Date</TableHead>
+                  <TableHead className="text-right pr-6">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.user_id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-medium">
-                          {user.username[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.username}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {getRoleDisplayName(user.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={user.status} size="sm" />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(user.created_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Dialog 
-                          open={editingUser?.user_id === user.user_id} 
-                          onOpenChange={(open) => !open && setEditingUser(null)}
-                        >
-                          <DialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => openEditDialog(user)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Edit User</DialogTitle>
-                              <DialogDescription>
-                                Update user information.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="edit-username">Username</Label>
-                                <Input
-                                  id="edit-username"
-                                  value={formData.username}
-                                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="edit-email">Email</Label>
-                                <Input
-                                  id="edit-email"
-                                  type="email"
-                                  value={formData.email}
-                                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="edit-password">Password (optional)</Label>
-                                <Input
-                                  id="edit-password"
-                                  type="password"
-                                  value={formData.password}
-                                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                                  placeholder="Leave empty to keep current password"
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="edit-role">Role</Label>
-                                <Select 
-                                  value={formData.role_id.toString()} 
-                                  onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {roles.map((role) => (
-                                      <SelectItem key={role.role_id} value={role.role_id.toString()}>
-                                        {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="edit-status">Status</Label>
-                                <Select 
-                                  value={formData.status} 
-                                  onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="inactive">Inactive</SelectItem>
-                                    <SelectItem value="suspended">Suspended</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button variant="outline" onClick={() => setEditingUser(null)}>
-                                Cancel
-                              </Button>
-                              <Button onClick={handleUpdate}>Save Changes</Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>{user.status === 'active' ? 'Suspend' : 'Activate'} User</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to {user.status === 'active' ? 'suspend' : 'activate'} {user.username}?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => handleStatusChange(user.user_id, user.status === 'active' ? 'suspended' : 'active')}
-                              >
-                                {user.status === 'active' ? 'Suspend' : 'Activate'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Users className="h-8 w-8 text-muted-foreground/50" />
+                        <p>No users found matching your search</p>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredUsers.map((user) => {
+                    const RoleInfo = getRoleBadgeInfo(user.role);
+                    const RoleIcon = RoleInfo.icon;
+                    return (
+                      <TableRow key={user.user_id} className="group">
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+                              {user.username[0].toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm text-foreground">{user.username}</span>
+                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("gap-1.5 pl-1.5 pr-2.5 py-0.5", RoleInfo.className)}>
+                            <RoleIcon className="h-3.5 w-3.5" />
+                            {RoleInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={user.status} size="sm" />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {format(new Date(user.created_at), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Dialog 
+                              open={editingUser?.user_id === user.user_id} 
+                              onOpenChange={(open) => !open && setEditingUser(null)}
+                            >
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                  onClick={() => openEditDialog(user)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Edit User Profile</DialogTitle>
+                                  <DialogDescription>
+                                    Update user details and permissions.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="edit-username">Username</Label>
+                                      <Input
+                                        id="edit-username"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="edit-role">Role</Label>
+                                      <Select 
+                                        value={formData.role_id.toString()} 
+                                        onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {roles.map((role) => (
+                                            <SelectItem key={role.role_id} value={role.role_id.toString()}>
+                                              {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="edit-email">Email Address</Label>
+                                    <Input
+                                      id="edit-email"
+                                      type="email"
+                                      value={formData.email}
+                                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="edit-password">New Password (optional)</Label>
+                                    <Input
+                                      id="edit-password"
+                                      type="password"
+                                      value={formData.password}
+                                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                                      placeholder="Leave empty to keep current"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="edit-status">Account Status</Label>
+                                    <Select 
+                                      value={formData.status} 
+                                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="active">
+                                          <div className="flex items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-green-500" />
+                                            Active
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="inactive">
+                                          <div className="flex items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-gray-400" />
+                                            Inactive
+                                          </div>
+                                        </SelectItem>
+                                        <SelectItem value="suspended">
+                                          <div className="flex items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-red-500" />
+                                            Suspended
+                                          </div>
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setEditingUser(null)}>
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={handleUpdate}>Save Changes</Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{user.status === 'active' ? 'Suspend' : 'Activate'} User</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to {user.status === 'active' ? 'suspend' : 'activate'} <strong>{user.username}</strong>?
+                                    <br />
+                                    {user.status === 'active' 
+                                      ? "User will lose access to the system immediately." 
+                                      : "User will regain access to the system."}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className={user.status === 'active' ? "bg-destructive hover:bg-destructive/90" : ""}
+                                    onClick={() => handleStatusChange(user.user_id, user.status === 'active' ? 'suspended' : 'active')}
+                                  >
+                                    {user.status === 'active' ? 'Suspend Account' : 'Activate Account'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </CardContent>

@@ -37,6 +37,7 @@ export interface Sensor {
   sensor_type: SensorType;
   status: SensorStatus;
   installed_at: string;
+  station_name?: string;
 }
 
 export interface SensorData {

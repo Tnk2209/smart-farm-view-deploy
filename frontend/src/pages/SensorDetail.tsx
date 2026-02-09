@@ -53,7 +53,9 @@ export default function SensorDetail() {
       setUpdateTrigger(prev => prev + 1);
       // Refetch sensor data
       if (id) {
-        getSensorData(parseInt(id)).then(res => {
+        const now = new Date();
+        const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days
+        getSensorData(parseInt(id), past.toISOString(), now.toISOString()).then(res => {
           if (res.success) setSensorData(res.data);
         });
       }
@@ -68,9 +70,11 @@ export default function SensorDetail() {
 
       try {
         const sensorId = parseInt(id);
+        const now = new Date();
+        const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days
         const [sensorRes, dataRes, thresholdsRes] = await Promise.all([
           getSensorById(sensorId),
-          getSensorData(sensorId),
+          getSensorData(sensorId, past.toISOString(), now.toISOString()),
           getThresholds(),
         ]);
 

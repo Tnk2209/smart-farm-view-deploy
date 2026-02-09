@@ -103,7 +103,10 @@ export async function findSensorByStationAndType(
 
 export async function getAllSensors(): Promise<Sensor[]> {
   const result = await pool.query<Sensor>(
-    'SELECT * FROM sensor ORDER BY station_id, sensor_type'
+    `SELECT s.*, st.station_name 
+     FROM sensor s
+     LEFT JOIN station st ON s.station_id = st.station_id
+     ORDER BY s.station_id, s.sensor_type`
   );
   return result.rows;
 }
