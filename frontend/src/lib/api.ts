@@ -3,7 +3,7 @@
 
 import { 
   User, Station, Sensor, SensorData, Alert, Threshold, 
-  DashboardSummary, ApiResponse, UserRole 
+  DashboardSummary, ApiResponse, UserRole, Role 
 } from './types';
 import { apiFetch, apiConfig } from './apiConfig';
 
@@ -75,6 +75,96 @@ export const getCurrentUser = async (): Promise<ApiResponse<User>> => {
   }
 };
 
+// ============ ROLES API ============
+
+/**
+ * GET /api/roles
+ * Get all roles (for dropdown in user management)
+ */
+export const getRoles = async (): Promise<ApiResponse<Role[]>> => {
+  try {
+    return await apiFetch<ApiResponse<Role[]>>('/roles');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch roles',
+    };
+  }
+};
+
+// ============ USERS API ============
+
+/**
+ * GET /api/users
+ * Get all users (Super User only)
+ */
+export const getUsers = async (): Promise<ApiResponse<User[]>> => {
+  try {
+    return await apiFetch<ApiResponse<User[]>>('/users');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch users',
+    };
+  }
+};
+
+/**
+ * GET /api/users/{id}
+ * Get user by ID (Super User only)
+ */
+export const getUserById = async (id: number): Promise<ApiResponse<User>> => {
+  try {
+    return await apiFetch<ApiResponse<User>>(`/users/${id}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch user',
+    };
+  }
+};
+
+/**
+ * POST /api/users
+ * Create new user (Super User only)
+ */
+export const createUser = async (
+  user: { username: string; password: string; email: string; role_id: number }
+): Promise<ApiResponse<User>> => {
+  try {
+    return await apiFetch<ApiResponse<User>>('/users', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create user',
+    };
+  }
+};
+
+/**
+ * PUT /api/users/{id}
+ * Update user (Super User only)
+ */
+export const updateUser = async (
+  id: number,
+  updates: { username: string; email: string; role_id: number; status: string; password?: string }
+): Promise<ApiResponse<User>> => {
+  try {
+    return await apiFetch<ApiResponse<User>>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update user',
+    };
+  }
+};
+
 // ============ STATIONS API ============
 
 /**
@@ -124,7 +214,75 @@ export const getStationLatestData = async (
   }
 };
 
+/**
+ * POST /api/stations
+ * Create new station (Manager, Super User)
+ */
+export const createStation = async (
+  station: {
+    device_id: string;
+    station_name: string;
+    province: string;
+    latitude: number;
+    longitude: number;
+  }
+): Promise<ApiResponse<Station>> => {
+  try {
+    return await apiFetch<ApiResponse<Station>>('/stations', {
+      method: 'POST',
+      body: JSON.stringify(station),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create station',
+    };
+  }
+};
+
+/**
+ * PUT /api/stations/{id}
+ * Update station (Manager, Super User)
+ */
+export const updateStation = async (
+  id: number,
+  updates: {
+    station_name: string;
+    province: string;
+    latitude: number;
+    longitude: number;
+    status: string;
+  }
+): Promise<ApiResponse<Station>> => {
+  try {
+    return await apiFetch<ApiResponse<Station>>(`/stations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update station',
+    };
+  }
+};
+
 // ============ SENSORS API ============
+
+/**
+ * GET /api/sensors
+ * Get all sensors
+ */
+export const getSensors = async (): Promise<ApiResponse<Sensor[]>> => {
+  try {
+    return await apiFetch<ApiResponse<Sensor[]>>('/sensors');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch sensors',
+    };
+  }
+};
 
 /**
  * GET /api/sensors/{id}
@@ -165,6 +323,77 @@ export const getSensorData = async (
   }
 };
 
+/**
+ * POST /api/sensors
+ * Create new sensor (Manager, Super User)
+ */
+export const createSensor = async (
+  sensor: {
+    station_id: number;
+    sensor_type: string;
+  }
+): Promise<ApiResponse<Sensor>> => {
+  try {
+    return await apiFetch<ApiResponse<Sensor>>('/sensors', {
+      method: 'POST',
+      body: JSON.stringify(sensor),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create sensor',
+    };
+  }
+};
+
+/**
+ * PUT /api/sensors/{id}
+ * Update sensor (Manager, Super User)
+ */
+export const updateSensor = async (
+  id: number,
+  updates: {
+    sensor_type: string;
+    status: string;
+  }
+): Promise<ApiResponse<Sensor>> => {
+  try {
+    return await apiFetch<ApiResponse<Sensor>>(`/sensors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update sensor',
+    };
+  }
+};
+
+/**
+ * POST /api/sensors/{id}/data
+ * Insert sensor data (Manager, Super User - for testing)
+ */
+export const insertSensorData = async (
+  id: number,
+  data: {
+    value: number;
+    recorded_at?: string;
+  }
+): Promise<ApiResponse<SensorData>> => {
+  try {
+    return await apiFetch<ApiResponse<SensorData>>(`/sensors/${id}/data`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to insert sensor data',
+    };
+  }
+};
+
 // ============ ALERTS API ============
 
 /**
@@ -194,6 +423,21 @@ export const getUnacknowledgedAlerts = async (): Promise<ApiResponse<Alert[]>> =
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch alerts',
+    };
+  }
+};
+
+/**
+ * GET /api/alerts/{id}
+ * Get alert by ID
+ */
+export const getAlertById = async (id: number): Promise<ApiResponse<Alert>> => {
+  try {
+    return await apiFetch<ApiResponse<Alert>>(`/alerts/${id}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch alert',
     };
   }
 };

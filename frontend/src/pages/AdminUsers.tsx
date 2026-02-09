@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getUsers, createUser, updateUser, deleteUser } from '@/lib/api';
-import { User, UserRole } from '@/lib/types';
+import { getUsers, createUser, updateUser, getRoles } from '@/lib/api';
+import { User, UserRole, Role } from '@/lib/types';
 import { getRoleDisplayName, getRoleBadgeVariant } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +51,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -61,48 +62,78 @@ export default function AdminUsers() {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    role: 'USER' as UserRole,
+    password: '',
+    role_id: 1,
+    status: 'active' as 'active' | 'inactive' | 'suspended',
   });
 
   useEffect(() => {
     fetchUsers();
+    fetchRoles();
   }, []);
 
   const fetchUsers = async () => {
     try {
       const response = await getUsers();
-      if (response.success) {
+      if (response.success && response.data) {
         setUsers(response.data);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchRoles = async () => {
+    try {
+      const response = await getRoles();
+      if (response.success && response.data) {
+        setRoles(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch roles:', error);
+    }
+  };
+
   const handleCreate = async () => {
+    if (!formData.username || !formData.email || !formData.password) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const response = await createUser({
         username: formData.username,
         email: formData.email,
-        role: formData.role,
-        role_id: formData.role === 'SUPER_USER' ? 3 : formData.role === 'MANAGER' ? 2 : 1,
+        password: formData.password,
+        role_id: formData.role_id,
       });
 
-      if (response.success) {
-        setUsers(prev => [...prev, response.data]);
+      if (response.success && response.data) {
+        setUsers(prev => [...prev, response.data!]);
         setIsCreateDialogOpen(false);
         resetForm();
         toast({
           title: "User Created",
           description: `User ${formData.username} has been created.`,
         });
+      } else {
+        throw new Error(response.error || 'Failed to create user');
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create user.",
+        description: error instanceof Error ? error.message : "Failed to create user.",
         variant: "destructive",
       });
     }
@@ -112,12 +143,19 @@ export default function AdminUsers() {
     if (!editingUser) return;
 
     try {
-      const response = await updateUser(editingUser.user_id, {
+      const updates: any = {
         username: formData.username,
         email: formData.email,
-        role: formData.role,
-        role_id: formData.role === 'SUPER_USER' ? 3 : formData.role === 'MANAGER' ? 2 : 1,
-      });
+        role_id: formData.role_id,
+        status: formData.status,
+      };
+
+      // Only include password if it's provided
+      if (formData.password) {
+        updates.password = formData.password;
+      }
+
+      const response = await updateUser(editingUser.user_id, updates);
 
       if (response.success && response.data) {
         setUsers(prev => prev.map(u => 
@@ -129,24 +167,37 @@ export default function AdminUsers() {
           title: "User Updated",
           description: `User ${formData.username} has been updated.`,
         });
+      } else {
+        throw new Error(response.error || 'Failed to update user');
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update user.",
+        description: error instanceof Error ? error.message : "Failed to update user.",
         variant: "destructive",
       });
     }
   };
 
-  const handleDelete = async (userId: number) => {
+  const handleStatusChange = async (userId: number, newStatus: 'active' | 'inactive' | 'suspended') => {
     try {
-      const response = await deleteUser(userId);
-      if (response.success) {
-        setUsers(prev => prev.filter(u => u.user_id !== userId));
+      const user = users.find(u => u.user_id === userId);
+      if (!user) return;
+
+      const response = await updateUser(userId, {
+        username: user.username,
+        email: user.email,
+        role_id: user.role_id,
+        status: newStatus,
+      });
+
+      if (response.success && response.data) {
+        setUsers(prev => prev.map(u => 
+          u.user_id === userId ? response.data! : u
+        ));
         toast({
-          title: "User Deleted",
-          description: "The user has been deleted.",
+          title: "Status Updated",
+          description: `User status changed to ${newStatus}.`,
         });
       }
     } catch (error) {
@@ -159,7 +210,13 @@ export default function AdminUsers() {
   };
 
   const resetForm = () => {
-    setFormData({ username: '', email: '', role: 'USER' });
+    setFormData({ 
+      username: '', 
+      email: '', 
+      password: '', 
+      role_id: 1, 
+      status: 'active' 
+    });
   };
 
   const openEditDialog = (user: User) => {
@@ -167,7 +224,9 @@ export default function AdminUsers() {
     setFormData({
       username: user.username,
       email: user.email,
-      role: user.role,
+      password: '', // Don't show existing password
+      role_id: user.role_id,
+      status: user.status,
     });
   };
 
@@ -233,18 +292,30 @@ export default function AdminUsers() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter password"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select 
-                    value={formData.role} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as UserRole }))}
+                    value={formData.role_id.toString()} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="USER">User</SelectItem>
-                      <SelectItem value="MANAGER">Manager</SelectItem>
-                      <SelectItem value="SUPER_USER">Super User</SelectItem>
+                      {roles.map((role) => (
+                        <SelectItem key={role.role_id} value={role.role_id.toString()}>
+                          {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -359,18 +430,46 @@ export default function AdminUsers() {
                                 />
                               </div>
                               <div className="space-y-2">
+                                <Label htmlFor="edit-password">Password (optional)</Label>
+                                <Input
+                                  id="edit-password"
+                                  type="password"
+                                  value={formData.password}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                                  placeholder="Leave empty to keep current password"
+                                />
+                              </div>
+                              <div className="space-y-2">
                                 <Label htmlFor="edit-role">Role</Label>
                                 <Select 
-                                  value={formData.role} 
-                                  onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as UserRole }))}
+                                  value={formData.role_id.toString()} 
+                                  onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
                                 >
                                   <SelectTrigger>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="USER">User</SelectItem>
-                                    <SelectItem value="MANAGER">Manager</SelectItem>
-                                    <SelectItem value="SUPER_USER">Super User</SelectItem>
+                                    {roles.map((role) => (
+                                      <SelectItem key={role.role_id} value={role.role_id.toString()}>
+                                        {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="edit-status">Status</Label>
+                                <Select 
+                                  value={formData.status} 
+                                  onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="active">Active</SelectItem>
+                                    <SelectItem value="inactive">Inactive</SelectItem>
+                                    <SelectItem value="suspended">Suspended</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -392,18 +491,18 @@ export default function AdminUsers() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete User</AlertDialogTitle>
+                              <AlertDialogTitle>{user.status === 'active' ? 'Suspend' : 'Activate'} User</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete {user.username}? This action cannot be undone.
+                                Are you sure you want to {user.status === 'active' ? 'suspend' : 'activate'} {user.username}?
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => handleDelete(user.user_id)}
+                                onClick={() => handleStatusChange(user.user_id, user.status === 'active' ? 'suspended' : 'active')}
                               >
-                                Delete
+                                {user.status === 'active' ? 'Suspend' : 'Activate'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
