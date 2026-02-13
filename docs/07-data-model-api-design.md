@@ -555,6 +555,66 @@ POST /api/thresholds
 PUT  /api/thresholds/{id}
 ```
 
+### Reports **New Update:2**
+
+```
+POST /api/reports/generate         (Manager, Super User)
+GET  /api/reports                  (List reports)
+GET  /api/reports/{id}             (Report detail)
+GET  /api/reports/{id}/download    (Download file)
+DELETE /api/reports/{id}           (Super User Only)
+``` 
+**New Update:2**
+
+### Support Tickets **New Update:2**
+
+```
+POST /api/support/tickets          (All authenticated users)
+GET  /api/support/tickets          (List all - Admin only)
+GET  /api/support/tickets/me       (My tickets)
+GET  /api/support/tickets/{id}     (Ticket detail)
+PUT  /api/support/tickets/{id}     (Update status)
+POST /api/support/tickets/{id}/resolve  (Mark as resolved)
+``` 
+**New Update:2**
+
+### Media Content **New Update:2**
+
+```
+GET  /api/media                    (List all published media)
+GET  /api/media/{id}               (Media detail)
+POST /api/media                    (Super User - upload)
+PUT  /api/media/{id}               (Super User - update)
+POST /api/media/{id}/view          (Track view count)
+``` 
+**New Update:2**
+
+### ALLRice App Integration **New Update:2**
+
+```
+POST /api/integration/allrice/alert     (Send alert to ALLRice)
+GET  /api/integration/allrice/status    (Check integration status)
+``` 
+**New Update:2**
+
+### External System Integration **New Update:2**
+
+```
+GET  /api/integration/doa/farmers       (กรมการข้าว - Farmer data)
+GET  /api/integration/doae/plots        (กรมส่งเสริมการเกษตร - Plot data)
+POST /api/integration/coordinate/convert (Lat/Lon ↔ UTM)
+``` 
+**New Update:2**
+
+### Digital Lock Control **New Update:2**
+
+```
+POST /api/stations/{id}/lock/unlock     (Super User)
+POST /api/stations/{id}/lock/lock       (Super User)
+GET  /api/stations/{id}/lock/status     (Current lock status)
+``` 
+**New Update:2**
+
 ---
 
 ## 📊 API Design Principles

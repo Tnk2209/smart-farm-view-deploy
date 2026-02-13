@@ -270,7 +270,7 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 
 ---
 
-## 🚨 Entity 6: Alert
+## 🚨 Entity 6: Alert **New Update:2**
 
 **แทน:** "การแจ้งเตือนความผิดปกติ"
 
@@ -282,12 +282,30 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 |-------|------|-------------|------------|
 | **alert_id** | INT | Primary Key | PK, AUTO_INCREMENT |
 | **station_id** | INT | Foreign Key → Station | FK, NOT NULL |
-| **sensor_id** | INT | Foreign Key → Sensor | FK, NOT NULL |
-| alert_type | VARCHAR(50) | ประเภทการแจ้งเตือน | NOT NULL |
+| **sensor_id** | INT | Foreign Key → Sensor | FK, NULL (สำหรับ heartbeat) | **New Update:2**
+| alert_type | ENUM | ประเภทการแจ้งเตือน | 'THRESHOLD', 'DEADMAN', 'HEARTBEAT' | **New Update:2**
 | severity | ENUM | ระดับความรุนแรง | 'LOW', 'MEDIUM', 'HIGH' |
 | alert_message | TEXT | ข้อความแจ้งเตือน | NOT NULL |
+| notification_mode | ENUM | รูปแบบการแจ้งเตือน | 'SINGLE', 'MULTI' | **New Update:2**
 | created_at | DATETIME | เวลาที่เกิด | DEFAULT CURRENT_TIMESTAMP |
 | is_acknowledged | BOOLEAN | รับทราบแล้วหรือไม่ | DEFAULT FALSE |
+| acknowledged_at | DATETIME | เวลาที่รับทราบ | NULL | **New Update:2**
+| acknowledged_by | INT | FK → User (ใครรับทราบ) | FK, NULL | **New Update:2**
+
+### Alert Types **New Update:2**
+
+| Alert Type | คำอธิบาย | Use Case |
+|------------|----------|----------|
+| **THRESHOLD** | ค่าเกินกำหนด (min/max) | Temperature > 40°C | **New Update:2**
+| **DEADMAN** | ไม่ได้รับข้อมูลเกินระยะเวลากำหนด | Sensor offline > 30 min | **New Update:2**
+| **HEARTBEAT** | Gateway/Station ไม่ตอบสนอง | Station down | **New Update:2**
+
+### Notification Mode **New Update:2**
+
+| Mode | พฤติกรรม |
+|------|----------|
+| **SINGLE** | แจ้งเตือนครั้งเดียว แล้วหยุด | **New Update:2**
+| **MULTI** | แจ้งเตือนซ้ำทุก X นาทีจนกว่าจะ acknowledge | **New Update:2**
 
 ### 📌 ที่มา
 
@@ -367,25 +385,53 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 
 ## 🎫 Entity 10: SupportTicket **New Update:2**
 
-**แทน:** "การแจ้งซ่อมและดูแล"
+**แทน:** "การแจ้งซ่อมและดูแล (QR Code Support)"
 
 ### Fields
 
 | Field | Type | Description | Constraint |
 |-------|------|-------------|------------|
 | **ticket_id** | INT | Primary Key | PK, AUTO_INCREMENT |
-| **user_id** | INT | FK → User | FK, NOT NULL |
-| **station_id** | INT | FK → Station (Optional) | FK, NULL |
+| **user_id** | INT | FK → User (ผู้แจ้ง) | FK, NOT NULL |
+| **station_id** | INT | FK → Station | FK, NULL |
+| qr_code | VARCHAR(100) | QR Code ที่ตู้ระบุ Station | UNIQUE, NOT NULL | **New Update:2**
+| issue_type | ENUM | ประเภทปัญหา | 'HARDWARE', 'SOFTWARE', 'NETWORK', 'POWER', 'OTHER' | **New Update:2**
 | title | VARCHAR(100) | หัวข้อแจ้งซ่อม | NOT NULL |
-| message | TEXT | รายละเอียด | - |
-| status | ENUM | สถานะ | 'OPEN', 'IN_PROGRESS', 'RESOLVED' |
+| description | TEXT | รายละเอียดปัญหา | NULL | **New Update:2**
+| severity | ENUM | ความรุนแรง | 'NORMAL', 'URGENT', 'CRITICAL' | **New Update:2**
+| status | ENUM | สถานะ | 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED' | **New Update:2**
+| assigned_to | INT | FK → User (ช่างที่รับผิดชอบ) | FK, NULL | **New Update:2**
 | created_at | DATETIME | วันที่แจ้ง | DEFAULT CURRENT_TIMESTAMP |
+| resolved_at | DATETIME | วันที่แก้ไขเสร็จ | NULL | **New Update:2**
+| sla_deadline | DATETIME | เวลาที่ต้องแก้ไขให้เสร็จ | NULL | **New Update:2**
+| resolution_note | TEXT | บันทึกการแก้ไข | NULL | **New Update:2**
+
+### SLA (Service Level Agreement) **New Update:2**
+
+| Severity | Response Time | Resolution Time |
+|----------|---------------|----------------|
+| **NORMAL** | 4 ชั่วโมง | 3 วัน | **New Update:2**
+| **URGENT** | 2 ชั่วโมง | 1 วัน | **New Update:2**
+| **CRITICAL** | ทันที | 24 ชั่วโมง | **New Update:2**
+
+### QR Code Flow **New Update:2**
+```
+1. Farmer สแกน QR Code ที่ตู้ Control
+2. เปิดหน้า Web Form (Pre-fill station_id จาก QR)
+3. กรอกรายละเอียดปัญหา
+4. Submit → สร้าง Ticket
+5. ระบบคำนวณ SLA Deadline
+6. แจ้งเตือนช่างผ่านระบบ
+7. ช่างรับงานและแก้ไข
+8. Update status → Resolved
+``` 
+**New Update:2**
 
 ---
 
 ## 🎬 Entity 11: MediaContent **New Update:2**
 
-**แทน:** "สื่อการเรียนรู้"
+**แทน:** "สื่อการเรียนรู้ดิจิทัล"
 
 ### Fields
 
@@ -393,9 +439,61 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 |-------|------|-------------|------------|
 | **media_id** | INT | Primary Key | PK, AUTO_INCREMENT |
 | title | VARCHAR(255) | ชื่อสื่อ | NOT NULL |
-| url | TEXT | ลิงก์ (YouTube/PDF) | NOT NULL |
-| type | ENUM | ประเภท | 'VIDEO', 'INFOGRAPHIC' |
-| category | VARCHAR(50) | หมวดหมู่ | - |
+| description | TEXT | คำอธิบาย | NULL | **New Update:2**
+| url | TEXT | ลิงก์ (YouTube/PDF/Cloud) | NOT NULL |
+| thumbnail_url | TEXT | ลิงก์รูป Preview | NULL | **New Update:2**
+| type | ENUM | ประเภท | 'VTR', 'INFOGRAPHIC', 'MANUAL', 'DOCUMENT' | **New Update:2**
+| category | VARCHAR(50) | หมวดหมู่ | 'Disease', 'Pest', 'Irrigation', 'General' | **New Update:2**
+| file_format | VARCHAR(20) | นามสกุลไฟล์ | 'mp4', 'pdf', 'jpg', 'png' | **New Update:2**
+| duration_minutes | INT | ระยะเวลา (สำหรับ VTR) | NULL | **New Update:2**
+| views_count | INT | จำนวนครั้งที่เปิดดู | DEFAULT 0 | **New Update:2**
+| status | ENUM | สถานะ | 'DRAFT', 'PUBLISHED', 'ARCHIVED' | **New Update:2**
+| created_at | DATETIME | วันที่สร้าง | DEFAULT CURRENT_TIMESTAMP | **New Update:2**
+| published_at | DATETIME | วันที่เผยแพร่ | NULL | **New Update:2**
+
+### Media Types **New Update:2**
+
+| Type | คำอธิบาย | ตัวอย่าง |
+|------|----------|----------|
+| **VTR** | วีดีโอสอนงาน (15 นาที, Full HD) | YouTube/Cloud Storage | **New Update:2**
+| **INFOGRAPHIC** | รูปภาพข้อมูล (1:1, 16:9) | JPG/PNG | **New Update:2**
+| **MANUAL** | คู่มือการใช้งานดิจิทัล | PDF | **New Update:2**
+| **DOCUMENT** | เอกสารแผ่นพับดิจิทัล | PDF | **New Update:2**
+
+## 🎯 Entity 12: AlertTarget **New Update:2**
+
+**แทน:** "กลุ่มเป้าหมายที่จะได้รับการแจ้งเตือน"
+
+### Fields
+
+| Field | Type | Description | Constraint |
+|-------|------|-------------|------------|
+| **target_id** | INT | Primary Key | PK, AUTO_INCREMENT | **New Update:2**
+| **alert_id** | INT | FK → Alert | FK, NOT NULL | **New Update:2**
+| target_type | ENUM | ประเภทเป้าหมาย | 'PROVINCE', 'DISTRICT', 'SUBDISTRICT', 'INDIVIDUAL', 'GROUP' | **New Update:2**
+| target_value | VARCHAR(100) | ชื่อพื้นที่ หรือ user_id/group_id | NOT NULL | **New Update:2**
+| notification_channel | ENUM | ช่องทางแจ้งเตือน | 'PUSH', 'SMS', 'EMAIL', 'ALLRICE_APP' | **New Update:2**
+| sent_at | DATETIME | เวลาที่ส่งแจ้งเตือน | NULL | **New Update:2**
+| delivery_status | ENUM | สถานะการส่ง | 'PENDING', 'SENT', 'FAILED', 'READ' | **New Update:2**
+
+### Target Types **New Update:2**
+
+| Type | คำอธิบาย | ตัวอย่าง |
+|------|----------|----------|
+| **PROVINCE** | แจ้งทั้งจังหวัด | 'Chiang Mai' | **New Update:2**
+| **DISTRICT** | แจ้งทั้งอำเภอ | 'Mae Rim' | **New Update:2**
+| **SUBDISTRICT** | แจ้งทั้งตำบล | 'Rim Tai' | **New Update:2**
+| **INDIVIDUAL** | แจ้งเฉพาะบุคคล | user_id: 123 | **New Update:2**
+| **GROUP** | แจ้งกลุ่ม | group_id: 5 (เกษตรกรภาคเหนือ) | **New Update:2**
+
+### Notification Channels **New Update:2**
+
+| Channel | คำอธิบาย |
+|---------|----------|
+| **PUSH** | Push Notification บน Web/App | **New Update:2**
+| **SMS** | ส่ง SMS | **New Update:2**
+| **EMAIL** | ส่ง Email | **New Update:2**
+| **ALLRICE_APP** | แจ้งเตือนผ่าน ALLRice App ของกรมการข้าว | **New Update:2**
 
 ---
 
@@ -411,9 +509,10 @@ INDEX idx_sensor_time (sensor_id, recorded_at)
 | **Station** | 1:N | **Alert** | ดู alert ระดับสถานี |
 | **Sensor** | 1:N | **Alert** | รู้ว่ามาจาก sensor ไหน |
 | **User** | 1:N | **Threshold** | ใครตั้งค่า |
-| **User** | 1:N | **FarmPlot** | เกษตรกรมีหลายแปลงได้ | **
-| **User** | 1:N | **AuditLog** | เก็บประวัติการใช้ | **
-| **User** | 1:N | **SupportTicket** | ใครแจ้งซ่อม | **
+| **User** | 1:N | **FarmPlot** | เกษตรกรมีหลายแปลงได้ | **New Update:2**
+| **User** | 1:N | **AuditLog** | เก็บประวัติการใช้ | **New Update:2**
+| **User** | 1:N | **SupportTicket** | ใครแจ้งซ่อม | **New Update:2**
+| **Alert** | 1:N | **AlertTarget** | 1 Alert แจ้งหลายกลุ่มได้ | **New Update:2**
 
 ---
 

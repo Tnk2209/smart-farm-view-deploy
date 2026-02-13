@@ -221,6 +221,180 @@ Manager (Request) → Reporting Engine → Query DB → PDF/Excel → Manager (D
 
 ---
 
+## 📶 OFFLINE MODE & DATA RETENTION **New Update:2**
+
+### Offline Mode Requirements **New Update:2**
+
+**วัตถุประสงค์:** **New Update:2**
+- Gateway ต้องสามารถเก็บข้อมูลไว้เมื่อเชื่อมต่ออินเทอร์เน็ตขาดหาย **New Update:2**
+- เมื่อกลับมา Online ต้องส่งข้อมูลย้อนหลังทั้งหมดไปยัง Server **New Update:2**
+- ระบบต้องไม่สูญเสียข้อมูลใดๆ **New Update:2**
+
+**Technical Implementation:** **New Update:2**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              IoT Gateway (Edge Device)                  │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │        Local Storage (SQLite/Disk)              │   │
+│  │  - Buffer สำหรับข้อมูลที่ยังส่งไม่ได้            │   │
+│  │  - Queue Management (FIFO)                      │   │
+│  │  - Retry Logic with Exponential Backoff         │   │
+│  └─────────────────────────────────────────────────┘   │
+│                         │                               │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │      Network Status Monitor                     │   │
+│  │  - Check connection every 30 seconds            │   │
+│  │  - Auto-detect when back online                 │   │
+│  └─────────────────────────────────────────────────┘   │
+│                         │                               │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │      Sync Manager                               │   │
+│  │  - Send buffered data when online               │   │
+│  │  - Batch upload (หลาย records ต่อครั้ง)         │   │
+│  │  - Mark as synced after success                 │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │   API Server    │
+                 │ POST /telemetry │
+                 └─────────────────┘
+``` 
+**New Update:2**
+
+**Prototype Testing Scenario:** **New Update:2**
+```
+1. Gateway ส่งข้อมูลปกติ (Online)
+2. ตัดการเชื่อมต่ออินเทอร์เน็ต (Simulate Network Failure)
+3. Gateway เก็บข้อมูลใน Local Storage (5-10 นาที)
+4. เชื่อมต่อกลับมา (Restore Network)
+5. ตรวจสอบว่า:
+   • ข้อมูลที่เก็บไว้ทั้งหมดถูกส่งไปยัง Server
+   • ไม่มีข้อมูลหาย
+   • ลำดับเวลา (timestamp) ถูกต้อง
+``` 
+**New Update:2**
+
+---
+
+## ⏱️ CONFIGURABLE FREQUENCY **New Update:2**
+
+### Data Transmission Frequency **New Update:2**
+
+**ตัวเลือกความถี่การส่งข้อมูล:** **New Update:2**
+
+| Frequency | Use Case | เหมาะกับ |
+|-----------|----------|----------|
+| **1 นาที** | Real-time monitoring | สถานการณ์วิกฤต / Demo | **New Update:2**
+| **5 นาที** | Standard operation | การใช้งานปกติ | **New Update:2**
+| **10 นาที** | Low-bandwidth mode | ประหยัด Data / แบตเตอรี่ | **New Update:2**
+
+**Web Configuration Interface:** **New Update:2**
+
+```typescript
+// API Endpoint สำหรับตั้งค่า Frequency
+PUT /api/stations/{id}/config
+
+Request Body:
+{
+  "telemetry_frequency_minutes": 1 | 5 | 10,
+  "enabled": true
+}
+``` 
+**New Update:2**
+
+**Flow การปรับความถี่:** **New Update:2**
+```
+1. Super User เข้า Station Config Page
+2. เลือก Frequency (1, 5, หรือ 10 นาที)
+3. คลิก "Apply Configuration"
+4. Backend ส่ง command ไปยัง Gateway
+5. Gateway ปรับ cron job / timer
+6. Gateway ยืนยันการตั้งค่าสำเร็จ
+7. แสดง Status บน UI
+``` 
+**New Update:2**
+
+**Prototype Testing Scenario:** **New Update:2**
+```
+1. ตั้งค่าเริ่มต้น: 5 นาที
+2. ทดสอบปรับเป็น 1 นาที → ตรวจสอบว่าข้อมูลเข้ามาทุก 1 นาที
+3. ทดสอบปรับเป็น 10 นาที → ตรวจสอบว่าข้อมูลเข้ามาทุก 10 นาที
+4. ยืนยันว่า UI แสดง Last Updated Time ถูกต้อง
+``` 
+**New Update:2**
+
+---
+
+## 🔧 HARDWARE REFERENCE SPECIFICATIONS **New Update:2**
+
+> **หมายเหตุ:** ในระยะ Demo ใช้ Mock Data แทน Hardware จริง  
+> แต่ระบบต้องออกแบบให้รองรับ Hardware ตาม Spec ด้านล่าง **New Update:2**
+
+### IoT Gateway Specifications **New Update:2**
+
+| Component | Specification | หมายเหตุ |
+|-----------|--------------|----------|
+| **CPU** | ARM Cortex A8 | Industrial Grade | **New Update:2**
+| **RAM** | 512MB | เพียงพอสำหรับ Python Runtime | **New Update:2**
+| **Operating System** | Linux-based | Support Python 3.x | **New Update:2**
+| **Programming Language** | Python | สำหรับ Data Collection Script | **New Update:2**
+| **Protocol Support** | Modbus TCP/RTU, FTP, HTTP/HTTPS | รองรับ Sensor หลายประเภท | **New Update:2**
+| **Connectivity** | 4G/LTE, Ethernet | Dual mode | **New Update:2**
+| **Standard Compliance** | NBTC Class A/B | Thailand Telecom Standard | **New Update:2**
+| **Surge Immunity** | Level 3 | ป้องกันไฟกระชาก | **New Update:2**
+
+### Sensor Specifications **New Update:2**
+
+| Sensor Type | Measurement Range | Accuracy | หมายเหตุ |
+|-------------|-------------------|----------|----------|
+| **Wind Speed** | 0-60 m/s | ±0.3 m/s | Ultrasonic type | **New Update:2**
+| **Air Temperature** | -40 to +80 °C | ±0.2 °C | Platinum RTD | **New Update:2**
+| **Air Humidity** | 0-100% RH | ±2% RH | Capacitive sensor | **New Update:2**
+| **Air Pressure** | 300-1100 hPa | ±0.5 hPa | Barometric sensor | **New Update:2**
+| **Rainfall** | 0-200 mm/h | ±4% | Tipping bucket | **New Update:2**
+| **Soil Moisture** | 0-100% | ±3% | TDR/FDR sensor | **New Update:2**
+| **Soil Temperature** | -40 to +80 °C | ±0.3 °C | Stainless 316L probe | **New Update:2**
+
+### Power System **New Update:2**
+
+| Component | Specification |
+|-----------|--------------|
+| **Solar Panel** | 50W, Polycrystalline | **New Update:2**
+| **Battery** | 12V, 35Ah, Deep Cycle | **New Update:2**
+| **Charge Controller** | PWM/MPPT, 10A | **New Update:2**
+| **Backup Duration** | 5-7 days (without sunlight) | **New Update:2**
+
+### Enclosure & Installation **New Update:2**
+
+| Component | Specification |
+|-----------|--------------|
+| **Control Cabinet** | IP55 rated (Dust & Water resistant) | **New Update:2**
+| **Mounting Pole** | 2 meters height, Galvanized steel | **New Update:2**
+| **Digital Lock** | Remote unlock + Physical key backup | **New Update:2**
+| **Installation** | Concrete foundation (30x30x50 cm) | **New Update:2**
+
+### Digital Lock System **New Update:2**
+
+**Features:** **New Update:2**
+- Remote unlock via Web Config (Command from Server) **New Update:2**
+- Physical key backup (กุญแจสำรอง) **New Update:2**
+- Status monitoring (เปิด/ปิด) **New Update:2**
+- Auto-lock after configurable timeout **New Update:2**
+
+**Control Flow:** **New Update:2**
+```
+Super User (Web UI) → API → MQTT/Command → Gateway → Digital Lock → Status Update
+``` 
+**New Update:2**
+
+---
+
 ## 🎯 SCOPE CONTROL (กันงานบาน)
 
 ### ✅ สิ่งที่อยู่ใน Demo
