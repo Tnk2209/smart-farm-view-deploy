@@ -527,6 +527,9 @@ Access Control:
 | POST | `/api/thresholds` | Create threshold | Super User |
 | GET | `/api/users` | List users | Super User |
 | POST | `/api/users` | Create user | Super User |
+| POST | `/api/plots` | Register Plot (Manual) | User | **New Update:2**
+| POST | `/api/stations/{id}/lock` | Control Digital Lock | Super User | **New Update:2**
+| GET | `/api/reports` | Generate Report | Manager | **New Update:2**
 
 ---
 
@@ -542,6 +545,9 @@ Access Control:
 | Alert List | UC06 | Level 2 | Severity badges (LOW/MEDIUM/HIGH) |
 | User Management | UC09 | Level 1 | Admin only |
 | Threshold Config | UC08 | Level 2 | Admin only |
+| Plot Registration | UC10 | Level 1 | Manual Lat/Lon Input | **New Update:2**
+| Digital Lock | UC13 | Level 2 | Super User only | **New Update:2**
+| Report Gen | UC14 | Level 2 | Manager/Super User | **New Update:2**
 
 ---
 
@@ -721,3 +727,5 @@ Day 4+: ค่อย ๆ ขยาย
 
 > **💡 จำไว้เสมอ:**  
 > **"AI Agent ที่ดี = อ่านเอกสารก่อนทำงาน + ถามเมื่อไม่แน่ใจ + ห้ามคิดเอง"**
+
+**New Update:2 (13/02/2026)**

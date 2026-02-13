@@ -152,6 +152,10 @@ User
 - **View Alert**: ดูรายการแจ้งเตือน
 - **Manage Users**: (Super User) จัดการผู้ใช้
 - **Configure Threshold**: (Super User) ตั้งค่าเกณฑ์การวัด
+- **Register Farm Plot**: (User) ลงทะเบียนแปลงนา (ระบุ Lat/Lon เอง) **New Update:2**
+- **Control Digital Lock**: (Super User) สั่งเปิด-ปิดกลอนประตู **New Update:2**
+- **Generate Report**: (Manager) ออกรายงานสรุป **New Update:2**
+- **Request Support**: (User) แจ้งซ่อมผ่าน QR Code **New Update:2**
 
 ---
 
@@ -175,6 +179,9 @@ User
 4. **P4 Analyze & Check Threshold**: วิเคราะห์ค่าที่รับเข้ามาเปรียบเทียบกับค่าวิกฤต (Threshold) เพื่อสร้าง Alert
 5. **P5 Display Dashboard & Alert**: ดึงข้อมูลจาก Data Store เพื่อแสดงผลให้ผู้ใช้
 6. **P6 Manage Station**: จัดการข้อมูล Metadata ของสถานี (สร้าง/แก้ไข/ลบ)
+7. **P7 Generate Reports**: สร้างรายงานสรุป (PDF/Excel) **New Update:2**
+8. **P8 Manage Support & Media**: จัดการ Ticket และสื่อการเรียนรู้ **New Update:2**
+9. **P9 Farm Registration**: ระบบลงทะเบียนแปลงนาแบบ Manual Input **New Update:2**
 
 #### Data Stores (แหล่งเก็บข้อมูล)
 
@@ -200,6 +207,10 @@ User
 5. **User**: ผู้ใช้งานระบบ
 6. **Role**: สิทธิ์การใช้งาน
 7. **Threshold**: เกณฑ์การวัดค่าปกติ/ผิดปกติ
+8. **FarmPlot**: แปลงนาเกษตรกร (GIS) **New Update:2**
+9. **AuditLog**: ประวัติการใช้งาน **New Update:2**
+10. **SupportTicket**: การแจ้งซ่อม **New Update:2**
+11. **MediaContent**: สื่อการเรียนรู้ **New Update:2**
 
 ---
 
@@ -290,6 +301,9 @@ User
 | Manage Sensor | ❌ | ✅ | ✅ |
 | Configure Threshold | ❌ | ❌ | ✅ |
 | Manage User | ❌ | ❌ | ✅ |
+| Register Plot | ✅ | ❌ | ❌ | **New Update:2**
+| Control Lock | ❌ | ❌ | ✅ | **New Update:2**
+| Generate Report | ❌ | ✅ | ✅ | **New Update:2**
 
 ---
 
@@ -320,3 +334,5 @@ User
 **วันที่**: February 1, 2026  
 **เวอร์ชัน**: 2.0  
 **สถานะ**: Design Complete, Ready for Implementation
+
+**New Update:2 (13/02/2026)**

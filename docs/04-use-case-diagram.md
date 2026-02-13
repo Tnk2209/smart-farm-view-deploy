@@ -47,9 +47,9 @@ Use Case จะอธิบาย **ความต้องการของ�
 ### 2️⃣ User
 
 **บทบาท:**
-- ผู้ใช้งานทั่วไป / เจ้าหน้าที่ภาคสนาม
+- ผู้ใช้งานทั่วไป(เกษตรกร) / เจ้าหน้าที่ภาคสนาม **New Update:2**
 - ใช้งานระบบเป็นประจำ
-- สนใจข้อมูลเชิงรายละเอียดและการแจ้งเตือน
+- สนใจข้อมูลเชิงรายละเอียดและการแจ้งเตือน ความเสี่ยงโรค และสื่อความรู้
 
 **Use Case:**
 - Login
@@ -238,7 +238,97 @@ Use Case จะอธิบาย **ความต้องการของ�
 
 ---
 
-## 📊 Use Case Diagram (ภาพรวม)
+### 🔹 UC10: Register Farm Plot **New Update:2**
+**Actor:** User (Farmer)
+
+**จุดประสงค์:**
+- ลงทะเบียนเข้าใช้งานและระบุพิกัดแปลงนา
+- ระบุพิกัด Lat/Lon ของแปลงนาด้วยตนเอง
+- ระบบจะคำนวณ UTM และ Nearest Station ให้
+
+**Flow:**
+1. กรอกข้อมูลส่วนตัว
+2. กรอกพิกัด Lat/Lon
+3. ระบบจับคู่สถานีและบันทึกสถานะ "Pending"
+4. รอ Super User อนุมัติ
+
+---
+
+### 🔹 UC11: Approve Registration **New Update:2**
+**Actor:** Super User **เท่านั้น**
+
+**จุดประสงค์:**
+- ตรวจสอบข้อมูลเกษตรกรที่สมัครใหม่
+- ยืนยันพิกัดแปลงนาและโฉนด
+- กด Approve เพื่อให้ User เริ่มใช้งานได้
+
+---
+
+### 🔹 UC12: View Disease Risk (BUS) **New Update:2**
+**Actor:** Manager, User
+
+**จุดประสงค์:**
+- ดูผลวิเคราะห์ความเสี่ยงโรคไหม้ (Blast Disease)
+- ดูค่า $T_d$, LWD และระดับความเสี่ยง (Low/High)
+- ดูคำแนะนำการจัดการ
+
+---
+
+### 🔹 UC13: Control Digital Lock **New Update:2**
+**Actor:** Super User (เจ้าหน้าที่ภาคสนาม)
+
+**จุดประสงค์:**
+- สั่งเปิด-ปิดกลอนไฟฟ้าของตู้สถานีแบบ Manual
+- ดูสถานะประตู (Open/Close) เรียลไทม์
+
+---
+
+### 🔹 UC14: Generate Report **New Update:2**
+**Actor:** Manager, Super User
+
+**จุดประสงค์:**
+- สร้างรายงานสรุปสถานการณ์ (PDF / Excel)
+- เลือกช่วงเวลาและพื้นที่ได้
+
+---
+
+### 🔹 UC15: Request Support (Helpdesk) **New Update:2**
+**Actor:** User
+
+**จุดประสงค์:**
+- สแกน QR Code ที่ตู้เพื่อแจ้งซ่อม
+- ติดตามสถานะ Ticket
+
+---
+
+### 🔹 UC16: Manage Tickets **New Update:2**
+**Actor:** Super User
+
+**จุดประสงค์:**
+- รับเรื่องแจ้งซ่อม
+- อัปเดตสถานะการซ่อมบำรุง
+
+---
+
+### 🔹 UC17: View Learning Media **New Update:2**
+**Actor:** User
+
+**จุดประสงค์:**
+- ดู VTR แนะนำความรู้ (15 นาที)
+- ดู Infographics เกี่ยวกับการปลูกข้าว
+
+---
+
+### 🔹 UC18: View Audit Logs **New Update:2**
+**Actor:** Manager, Super User
+
+**จุดประสงค์:**
+- ตรวจสอบประวัติการใช้งานระบบ
+- ใครทำอะไร เมื่อไหร่ (โดยเฉพาะการสั่งเปิดตู้และการแก้ไขข้อมูล)
+
+---
+
+## 📊 Use Case Diagram (ภาพรวม) **New Update:2**
 
 ```
                     ┌─────────────────────────────────────┐
@@ -268,13 +358,22 @@ Use Case จะอธิบาย **ความต้องการของ�
     │  • Receive Notification          (User, Manager)   │
     │  • Configure Threshold           (Super User)      │
     │  • Manage Users                  (Super User)      │
+    │  • Register Farm Plot            (User)            │
+    │  • Approve Registration          (Super User)      │
+    │  • View Disease Risk (BUS)       (Manager, User)   │
+    │  • Control Digital Lock          (Super User)      │
+    │  • Generate Report               (Manager, SU)     │
+    │  • Request Support               (User)            │
+    │  • Manage Tickets                (Super User)      │
+    │  • View Media                    (User)            │
+    │  • View Audit Logs               (Manager, SU)     │
     │                                                    │
     └────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📋 Use Case Summary Table
+## 📋 Use Case Summary Table **New Update:2**
 
 | Use Case | Manager | User | Super User | Priority |
 |----------|---------|------|------------|----------|
@@ -287,6 +386,15 @@ Use Case จะอธิบาย **ความต้องการของ�
 | Receive Notification | ✅ | ✅ | ❌ | Level 2 |
 | Configure Threshold | ❌ | ❌ | ✅ | Level 2 |
 | Manage Users | ❌ | ❌ | ✅ | Level 1 |
+| Register Farm Plot | ❌ | ✅ | ❌ | Level 1 |
+| Approve Registration | ❌ | ❌ | ✅ | Level 1 |
+| View Disease Risk (BUS) | ✅ | ✅ | ❌ | Level 1 |
+| Control Digital Lock | ❌ | ❌ | ✅ | Level 2 |
+| Generate Report | ✅ | ❌ | ✅ | Level 2 |
+| Request Support | ❌ | ✅ | ❌ | Level 2 |
+| Manage Tickets | ❌ | ❌ | ✅ | Level 2 |
+| View Learning Media | ❌ | ✅ | ❌ | Level 3 |
+| View Audit Logs | ✅ | ❌ | ✅ | Level 2 |
 
 ---
 
@@ -335,3 +443,5 @@ Use Case จะอธิบาย **ความต้องการของ�
 **หมายเหตุ:**  
 Use Case นี้เป็น "สัญญา" ระหว่างระบบกับผู้ใช้  
 ทุก Feature ที่สร้างต้องตอบโจทย์ Use Case อย่างน้อย 1 ตัว
+
+**New Update:2 (13/02/2026)** 

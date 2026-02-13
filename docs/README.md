@@ -104,6 +104,8 @@
 - `Station` → `Sensor` → `SensorData` (1:N:N)
 - `Alert` ผูกทั้ง `Station` และ `Sensor`
 - `Threshold` กำหนดเกณฑ์ per sensor_type
+- `FarmPlot` เก็บพิกัดแปลงนา (Manual Input) **New Update:2**
+- `AuditLog` เก็บประวัติการสั่งงาน (Lock Control) **New Update:2**
 
 ### API Pattern
 - `GET /api/stations` - List all
@@ -130,3 +132,5 @@
 **สร้างเมื่อ**: February 1, 2026   
 **Version**: 1.0  
 **Purpose**: AI Agent Reference Documentation
+
+**New Update:2 (13/02/2026)**

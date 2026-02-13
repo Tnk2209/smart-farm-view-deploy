@@ -69,7 +69,7 @@ GET /api/roles
 
 ## 2️⃣ USER Entity
 
-### 📦 Data Model
+### 📦 Data Model **New Update:2**
 
 ```typescript
 USER {
@@ -78,7 +78,9 @@ USER {
   password_hash: string
   email: string (UNIQUE)
   role_id: number (FK → ROLE)
-  status: 'active' | 'inactive' | 'suspended'
+  status: 'pending' | 'active' | 'inactive' | 'suspended' ** 
+  phone: string
+  full_name: string
   created_at: datetime
 }
 ```
@@ -117,13 +119,46 @@ PUT    /api/users/{id}
 ### 🔐 Access Control
 
 - **Super User** → CRUD ผู้ใช้ทั้งหมด
-- **User / Manager** → ดูข้อมูลตัวเองเท่านั้น
+- **User / Manager** → ดูข้อมูลตัวเองเท่านั้น **New Update:2**
+
+---
+
+## 2️⃣.5️⃣ FARM_PLOT Entity (New)
+
+### 📦 Data Model **New Update:2**
+
+```typescript
+FARM_PLOT {
+  plot_id: number (PK)
+  user_id: number (FK → USER)
+  lat: number
+  lon: number
+  utm_coords: string
+  nearest_station_id: number (FK → STATION)
+  status: 'pending' | 'active' | 'rejected'
+  created_at: datetime
+}
+```
+
+### 🎯 Purpose **New Update:2**
+
+เก็บข้อมูลพิกัดแปลงนาของเกษตรกร เพื่อ:
+- Map กับ Station ที่ใกล้ที่สุด
+- คำนวณ BUS Algorithm (Disease Risk) เฉพาะพื้นที่
+
+### 🌐 API Mapping **New Update:2**
+
+```
+POST /api/plots         (Register Manual)
+GET  /api/plots/me      (My Plots)
+GET  /api/plots/{id}    (Detail)
+```
 
 ---
 
 ## 3️⃣ STATION Entity (Core Entity)
 
-### 📦 Data Model
+### 📦 Data Model **New Update:2**
 
 ```typescript
 STATION {
@@ -137,11 +172,11 @@ STATION {
 }
 ```
 
-### 🎯 Purpose
+### 🎯 Purpose **New Update:2**
 
 แทน **"สถานีตรวจวัด"** ซึ่งเป็น **ศูนย์กลางของระบบ** Smart Agriculture
 
-### 📌 Constraints
+### 📌 Constraints **New Update:2**
 
 - `latitude` / `longitude` ต้องอยู่ในช่วงที่ถูกต้อง
 - `status`:
@@ -149,12 +184,12 @@ STATION {
   - `inactive` - ปิดการใช้งาน
   - `maintenance` - อยู่ระหว่างซ่อมบำรุง
 
-### 🔗 Relationships
+### 🔗 Relationships **New Update:2**
 
 - 1 STATION → N SENSOR
 - 1 STATION → N ALERT
 
-### 🌐 API Mapping
+### 🌐 API Mapping **New Update:2**
 
 ```
 GET  /api/stations
@@ -167,7 +202,7 @@ PUT  /api/stations/{id}
 
 ## 4️⃣ SENSOR Entity
 
-### 📦 Data Model
+### 📦 Data Model **New Update:2**
 
 ```typescript
 SENSOR {
@@ -179,11 +214,11 @@ SENSOR {
 }
 ```
 
-### 🎯 Purpose
+### 🎯 Purpose **New Update:2**
 
 แทนอุปกรณ์ **IoT / Sensor** จริงที่ติดตั้งอยู่ในแต่ละสถานี
 
-### 📌 Constraints
+### 📌 Constraints **New Update:2**
 
 - `sensor_type` เช่น:
   - `temperature`
@@ -197,13 +232,13 @@ SENSOR {
   - `inactive` - ปิดใช้งาน
   - `maintenance` - ซ่อมบำรุง
 
-### 🔗 Relationships
+### 🔗 Relationships **New Update:2**
 
 - SENSOR belongs to STATION
 - SENSOR generates SENSOR_DATA
 - SENSOR triggers ALERT
 
-### 🌐 API Mapping
+### 🌐 API Mapping **New Update:2**
 
 ```
 GET  /api/sensors
@@ -216,7 +251,7 @@ PUT  /api/sensors/{id}
 
 ## 5️⃣ SENSOR_DATA Entity (หัวใจระบบ 🔥)
 
-### 📦 Data Model
+### 📦 Data Model **New Update:2**
 
 ```typescript
 SENSOR_DATA {
@@ -227,7 +262,7 @@ SENSOR_DATA {
 }
 ```
 
-### 🎯 Purpose
+### 🎯 Purpose **New Update:2**
 
 เก็บข้อมูลค่าที่ sensor ส่งเข้ามา  
 ใช้สำหรับ:
@@ -236,23 +271,23 @@ SENSOR_DATA {
 - Forecast / Machine Learning
 - Trigger Alert
 
-### 📌 Constraints
+### 📌 Constraints **New Update:2**
 
 - `sensor_id` ต้องมีอยู่จริง
 - `recorded_at` ไม่ควรซ้ำใน sensor เดียวกัน
 - `value` ต้องอยู่ในช่วงที่ sensor รองรับ
 
-### 📈 Index (สำคัญมาก)
+### 📈 Index (สำคัญมาก) **New Update:2**
 
 ```sql
 INDEX idx_sensor_time (sensor_id, recorded_at)
 ```
 
-### 🔗 Relationships
+### 🔗 Relationships **New Update:2**
 
 - Many SENSOR_DATA → One SENSOR
 
-### 🌐 API Mapping
+### 🌐 API Mapping **New Update:2**
 
 **สำหรับ IoT Device (Ingest):**
 ```
@@ -265,7 +300,7 @@ GET  /api/sensors/{id}/data?from=&to=  (query time-series)
 GET  /api/stations/{id}/data/latest    (ดูค่าล่าสุดทุก sensor)
 ```
 
-### 📡 Telemetry Ingest API
+### 📡 Telemetry Ingest API **New Update:2**
 
 **Endpoint:** `POST /api/telemetry`
 
@@ -288,7 +323,8 @@ GET  /api/stations/{id}/data/latest    (ดูค่าล่าสุดทุ�
     "cabinet_temp_c": 44.8,
     "cabinet_rh_pct": 50.2,
     "solar_v": 18.6,
-    "battery_v": 12.4
+    "battery_v": 12.4,
+    "gate_door": "0 | 1"
   },
   "sim_serial": "243038645779",
   "sim_rssi": -40
@@ -346,6 +382,7 @@ GET  /api/stations/{id}/data/latest    (ดูค่าล่าสุดทุ�
 | `cabinet_rh_pct` | `cabinet_humidity` | % |
 | `solar_v` | `solar_voltage` | V |
 | `battery_v` | `battery_voltage` | V |
+| `gate_door` | `gate_door` | 0 | 1 |
 
 ---
 
@@ -693,3 +730,5 @@ STEP 7 เป็นการนำ ERD มาแปลงเป็น **Data Mod
 
 เพื่อให้ทีมสามารถพัฒนา **Backend, Frontend และ Demo ระบบ**  
 บนโครงสร้างเดียวกันได้อย่างเป็นระบบและขยายต่อได้ในอนาคต 🚀
+
+**New Update:2 (13/02/2026)**
