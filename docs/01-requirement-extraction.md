@@ -22,6 +22,7 @@
 - Manager
 - Super User
 - User
+- Farmer **New Update:2**
 - Audit Log
 - Access Control
 
@@ -112,12 +113,18 @@
 - Dashboard
 - Graph
 - Visualization
+- GIS Map **New Update:2**
+- Digital Lock Control **New Update:2**
+- Learning Media **New Update:2**
 
 **Requirement:**
 - ผู้ใช้ดูข้อมูลผ่านเว็บ
 - เห็นข้อมูลแบบ real-time / near real-time
 - มีกราฟ / สรุปผล
 - ใช้งานได้บนหลายอุปกรณ์
+- Farmer ลงทะเบียนแปลงนาได้ (Manual Lat/Lon) **New Update:2**
+- สั่งเปิด-ปิด Digital Lock ได้ **New Update:2**
+- ดูสื่อการเรียนรู้ (Media) และแจ้งซ่อม (Ticket) ได้ **New Update:2**
 
 ---
 
@@ -218,3 +225,5 @@
 ---
 
 **Next Step**: [02-requirement-grouping-priority.md](02-requirement-grouping-priority.md) - การจัดลำดับความสำคัญและแบ่ง Priority Level
+
+**New Update:2 (13/02/2026)**

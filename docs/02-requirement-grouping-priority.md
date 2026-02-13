@@ -93,6 +93,7 @@
 **👉 Demo:**
 - กราฟเวลา
 - Summary card
+- Map View แสดงพิกัดแปลงนา (Manual Input) **New Update:2**
 
 ---
 
@@ -133,6 +134,25 @@
 - ไม่คำนวณจริง
 - ใช้สูตรจำลอง
 - แสดงผลลัพธ์เป็น "คะแนน / สถานะ"
+
+---
+
+### 7️⃣ Digital Lock & Extensions **New Update:2**
+**Keyword:**
+- Digital Lock
+- Manual Control
+- Reporting
+- Helpdesk/Media
+
+**เหตุผล:**
+- Feature เสริมที่ทำให้ระบบสมบูรณ์
+- เพิ่ม Value ให้ User (Farmer)
+
+**👉 Demo:**
+- ปุ่มเปิด-ปิด Lock (Simulate state change)
+- หน้าลงทะเบียน Farmer (Manual Input)
+- Export Report ง่ายๆ
+- หน้าแสดง Media List
 
 ---
 
@@ -189,6 +209,7 @@
 | Dashboard & Visualization | 🔴 Level 1 | ✅ Full Implementation |
 | Alert & Threshold | 🟠 Level 2 | ✅ Simple Implementation |
 | Algorithm & Analysis | 🟠 Level 2 | ⚠️ Mock Logic Only |
+| Digital Lock & Extensions | 🟠 Level 2 | ✅ Mock/Simulate | **New Update:2**
 | HA / Replication | 🟡 Level 3 | 📝 Diagram Only |
 | Security Advanced | 🟡 Level 3 | 📝 Concept Only |
 | Hardware Integration | 🟡 Level 3 | ❌ Future Phase |
@@ -252,3 +273,5 @@
 **หมายเหตุสำคัญ:**  
 Priority Level นี้ใช้ควบคุม Scope ของ Demo เท่านั้น  
 ไม่ได้หมายความว่า Level 3 ไม่สำคัญ แต่เก็บไว้ทำทีหลัง
+
+**New Update:2 (13/02/2026)**

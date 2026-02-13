@@ -27,6 +27,8 @@
 - แสดงผลแบบ **Real-time** / **Near Real-time**
 - สามารถ**แจ้งเตือน**เมื่อเกิดความผิดปกติ
 - รองรับ**หลายระดับผู้ใช้งาน** (Role-Based Access Control)
+- รองรับ **Farmer** ลงทะเบียนแปลงนา (GIS) และ **Digital Lock** ควบคุมการเปิด-ปิด **New Update:2**
+- มีระบบ **Reporting** และ **Learning Media** **New Update:2**
 
 ### แนวคิดหลัก: Station-first Architecture
 - ระบบหมุนรอบ **Station** (สถานีเกษตร) เป็นศูนย์กลาง
@@ -113,8 +115,11 @@ Core Entities:
 - Station-based Dashboard
 - Map visualization
 - Alert แบบ rule-based
-- Role พื้นฐาน (User, Manager, Super User)
+- Role พื้นฐาน (User, Manager, Super User, Farmer) **New Update:2**
 - Database structure และ data model
+- Digital Lock Control (Simulation) **New Update:2**
+- Manual Lat/Lon Registration for Farmers **New Update:2**
+- Reporting (Basic export) **New Update:2**
 
 ### ❌ สิ่งที่อยู่นอก Demo
 - Hardware จริง
@@ -183,3 +188,5 @@ User → View Only
 
 **อัพเดทล่าสุด**: February 1, 2026  
 **สถานะ**: Requirements & Design Complete, Implementation In Progress
+
+**New Update:2 (13/02/2026)**
