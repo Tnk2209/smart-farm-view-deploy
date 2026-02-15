@@ -71,6 +71,66 @@ export interface Threshold {
   created_by: number;
   updated_at: string;
 }
+// Farm Plot for UC10, UC11 (New Update:2)
+export interface FarmPlot {
+  plot_id: number;
+  user_id: number;
+  lat: number;
+  lon: number;
+  utm_coords?: string;
+  nearest_station_id?: number;
+  land_title_deed?: string;
+  area_size_rai?: number;
+  status: 'pending' | 'active' | 'rejected';
+  created_at: string;
+  updated_at: string;
+}
+
+// Disease Risk (BUS Algorithm) for UC12 (New Update:2)
+export type RiskLevel = 'low' | 'medium' | 'high';
+
+export interface BUSResult {
+  bus_score: number;
+  risk_level: RiskLevel;
+  dew_point_avg: number;
+  lwd_hours: number;
+  temperature_avg: number;
+  humidity_avg: number;
+  days_analyzed: number;
+}
+
+export interface StationDiseaseRisk extends BUSResult {
+  station_id: number;
+  station_name: string;
+  data_points: number;
+}
+
+export interface PlotDiseaseRisk extends BUSResult {
+  plot_id: number;
+  station_id: number;
+  station_name: string;
+  data_points: number;
+}
+
+export interface DiseaseRiskSummary {
+  total_stations: number;
+  high_risk: number;
+  medium_risk: number;
+  low_risk: number;
+}
+
+export interface AllStationsDiseaseRisk {
+  summary: DiseaseRiskSummary;
+  stations: Array<{
+    station_id: number;
+    station_name: string;
+    province: string;
+    bus_score: number;
+    risk_level: RiskLevel;
+    lwd_hours?: number;
+    has_data: boolean;
+  }>;
+}
 
 // API Response types
 export interface ApiResponse<T> {

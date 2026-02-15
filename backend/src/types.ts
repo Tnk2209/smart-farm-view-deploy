@@ -84,6 +84,21 @@ export interface Role {
   role_name: UserRole;
 }
 
+// Farm Plot for UC10, UC11 (New Update:2)
+export interface FarmPlot {
+  plot_id: number;
+  user_id: number;
+  lat: number;
+  lon: number;
+  utm_coords?: string;
+  nearest_station_id?: number;
+  land_title_deed?: string;
+  area_size_rai?: number;
+  status: 'pending' | 'active' | 'rejected';
+  created_at: string;
+  updated_at: string;
+}
+
 // Telemetry Message Structure (from IoT Device)
 export interface TelemetryMessage {
   device_id: string;

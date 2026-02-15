@@ -3,7 +3,8 @@
 
 import { 
   User, Station, Sensor, SensorData, Alert, Threshold, 
-  DashboardSummary, ApiResponse, UserRole, Role 
+  DashboardSummary, ApiResponse, UserRole, Role, FarmPlot,
+  StationDiseaseRisk, PlotDiseaseRisk, AllStationsDiseaseRisk
 } from './types';
 import { apiFetch, apiConfig } from './apiConfig';
 
@@ -557,6 +558,168 @@ export const getDashboardSummary = async (): Promise<ApiResponse<DashboardSummar
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch dashboard summary',
+    };
+  }
+};
+
+// ============ FARM PLOTS API (UC10, UC11) ============
+
+/**
+ * POST /api/plots
+ * Register new farm plot (UC10)
+ * Access: USER (Farmer)
+ */
+export const registerFarmPlot = async (
+  plot: {
+    lat: number;
+    lon: number;
+    utm_coords?: string;
+    land_title_deed?: string;
+    area_size_rai?: number;
+  }
+): Promise<ApiResponse<FarmPlot>> => {
+  try {
+    return await apiFetch<ApiResponse<FarmPlot>>('/plots', {
+      method: 'POST',
+      body: JSON.stringify(plot),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to register farm plot',
+    };
+  }
+};
+
+/**
+ * GET /api/plots/me
+ * Get current user's farm plots
+ */
+export const getMyFarmPlots = async (): Promise<ApiResponse<FarmPlot[]>> => {
+  try {
+    return await apiFetch<ApiResponse<FarmPlot[]>>('/plots/me');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch farm plots',
+    };
+  }
+};
+
+/**
+ * GET /api/plots
+ * Get all farm plots (UC11 - for approval)
+ * Access: SUPER_USER only
+ */
+export const getAllFarmPlots = async (): Promise<ApiResponse<FarmPlot[]>> => {
+  try {
+    return await apiFetch<ApiResponse<FarmPlot[]>>('/plots');
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch all farm plots',
+    };
+  }
+};
+
+/**
+ * GET /api/plots/:id
+ * Get farm plot by ID
+ */
+export const getFarmPlotById = async (id: number): Promise<ApiResponse<FarmPlot>> => {
+  try {
+    return await apiFetch<ApiResponse<FarmPlot>>(`/plots/${id}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch farm plot',
+    };
+  }
+};
+
+/**
+ * PUT /api/plots/:id/approve
+ * Approve or reject farm plot (UC11)
+ * Access: SUPER_USER only
+ */
+export const approveFarmPlot = async (
+  id: number,
+  status: 'active' | 'rejected',
+  nearest_station_id?: number
+): Promise<ApiResponse<FarmPlot>> => {
+  try {
+    return await apiFetch<ApiResponse<FarmPlot>>(`/plots/${id}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, nearest_station_id }),
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to approve farm plot',
+    };
+  }
+};
+
+// ============ DISEASE RISK (BUS ALGORITHM) API (UC12) ============
+
+/**
+ * GET /api/disease-risk/station/:station_id
+ * Get disease risk (BUS score) for a specific station
+ * Access: USER, MANAGER, SUPER_USER
+ */
+export const getStationDiseaseRisk = async (
+  stationId: number,
+  days: number = 10
+): Promise<ApiResponse<StationDiseaseRisk>> => {
+  try {
+    return await apiFetch<ApiResponse<StationDiseaseRisk>>(
+      `/disease-risk/station/${stationId}?days=${days}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch disease risk',
+    };
+  }
+};
+
+/**
+ * GET /api/disease-risk/plot/:plot_id
+ * Get disease risk (BUS score) for a farm plot based on nearest station
+ * Access: USER (own plots), MANAGER, SUPER_USER (all plots)
+ */
+export const getPlotDiseaseRisk = async (
+  plotId: number,
+  days: number = 10
+): Promise<ApiResponse<PlotDiseaseRisk>> => {
+  try {
+    return await apiFetch<ApiResponse<PlotDiseaseRisk>>(
+      `/disease-risk/plot/${plotId}?days=${days}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch plot disease risk',
+    };
+  }
+};
+
+/**
+ * GET /api/disease-risk/all-stations
+ * Get disease risk summary for all stations
+ * Access: MANAGER, SUPER_USER
+ */
+export const getAllStationsDiseaseRisk = async (
+  days: number = 10
+): Promise<ApiResponse<AllStationsDiseaseRisk>> => {
+  try {
+    return await apiFetch<ApiResponse<AllStationsDiseaseRisk>>(
+      `/disease-risk/all-stations?days=${days}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch disease risk summary',
     };
   }
 };

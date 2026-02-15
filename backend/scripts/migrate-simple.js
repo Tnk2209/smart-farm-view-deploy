@@ -129,6 +129,35 @@ try {
   `);
   console.log('✅ Index "idx_alert_station" created');
 
+  // Create farm_plot table (New Update:2 - UC10, UC11)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS farm_plot (
+      plot_id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES "User"(user_id) ON DELETE CASCADE,
+      lat DOUBLE PRECISION NOT NULL,
+      lon DOUBLE PRECISION NOT NULL,
+      utm_coords VARCHAR(50),
+      nearest_station_id INTEGER REFERENCES station(station_id) ON DELETE SET NULL,
+      land_title_deed VARCHAR(50),
+      area_size_rai FLOAT,
+      status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'rejected')),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log('✅ Table "farm_plot" created');
+
+  // Create index for farm_plot queries
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_farm_plot_user 
+    ON farm_plot(user_id, created_at DESC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_farm_plot_station 
+    ON farm_plot(nearest_station_id)
+  `);
+  console.log('✅ Indexes for "farm_plot" created');
+
   console.log('\n🎉 All migrations completed successfully!');
 } catch (error) {
   console.error('\n❌ Migration failed:', error.message);

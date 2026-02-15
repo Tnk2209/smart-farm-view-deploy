@@ -19,6 +19,9 @@ import Alerts from "./pages/Alerts";
 import AdminUsers from "./pages/AdminUsers";
 import AdminThresholds from "./pages/AdminThresholds";
 import AdminSettings from "./pages/AdminSettings";
+import RegisterPlot from "./pages/RegisterPlot";
+import ApprovePlots from "./pages/ApprovePlots";
+import DiseaseRisk from "./pages/DiseaseRisk";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +60,19 @@ const App = () => (
               } />
               <Route path="/alerts" element={
                 <ProtectedRoute><Alerts /></ProtectedRoute>
+              } />
+              
+              {/* Farm Plot Routes (UC10, UC11) */}
+              <Route path="/register-plot" element={
+                <ProtectedRoute><RegisterPlot /></ProtectedRoute>
+              } />
+              <Route path="/admin/approve-plots" element={
+                <ProtectedRoute requiredPermission="manage_user"><ApprovePlots /></ProtectedRoute>
+              } />
+              
+              {/* Disease Risk Route (UC12) */}
+              <Route path="/disease-risk" element={
+                <ProtectedRoute><DiseaseRisk /></ProtectedRoute>
               } />
               
               {/* Admin Routes */}

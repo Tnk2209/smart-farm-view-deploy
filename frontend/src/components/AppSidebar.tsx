@@ -32,6 +32,9 @@ import {
   Moon,
   Leaf,
   SlidersHorizontal,
+  MapPinned,
+  CheckSquare,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -41,10 +44,13 @@ const menuItems = [
   { title: 'Stations', url: '/stations', icon: Radio, permission: 'view_dashboard' },
   { title: 'Sensors', url: '/sensors', icon: Thermometer, permission: 'view_sensor_data' },
   { title: 'Alerts', url: '/alerts', icon: AlertTriangle, permission: 'view_dashboard' },
+  { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard' },
+  { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard' },
 ];
 
 const adminItems = [
   { title: 'Users', url: '/admin/users', icon: Users, permission: 'manage_user' },
+  { title: 'Approve Plots', url: '/admin/approve-plots', icon: CheckSquare, permission: 'manage_user' },
   { title: 'Thresholds', url: '/admin/thresholds', icon: SlidersHorizontal, permission: 'configure_threshold' },
   { title: 'Settings', url: '/admin/settings', icon: Settings, permission: 'manage_station' },
 ];

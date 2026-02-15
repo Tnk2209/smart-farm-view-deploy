@@ -1,6 +1,6 @@
 import { pool } from './connection.js';
 import type { 
-  Station, Sensor, SensorData, Alert, Threshold, User, Role 
+  Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot
 } from '../types.js';
 
 // ==================== STATION QUERIES ====================
@@ -431,4 +431,141 @@ export async function getRoleById(roleId: number): Promise<Role | null> {
     [roleId]
   );
   return result.rows[0] || null;
+}
+
+// ==================== FARM PLOT QUERIES (UC10, UC11) ====================
+
+/**
+ * Create new farm plot registration (UC10)
+ * Status defaults to 'pending' (requires Super User approval)
+ */
+export async function createFarmPlot(
+  userId: number,
+  lat: number,
+  lon: number,
+  utmCoords?: string,
+  landTitleDeed?: string,
+  areaSizeRai?: number
+): Promise<FarmPlot> {
+  const result = await pool.query<FarmPlot>(
+    `INSERT INTO farm_plot (user_id, lat, lon, utm_coords, land_title_deed, area_size_rai, status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+     RETURNING *`,
+    [userId, lat, lon, utmCoords || null, landTitleDeed || null, areaSizeRai || null]
+  );
+  return result.rows[0];
+}
+
+/**
+ * Get all farm plots (Super User only for approval)
+ */
+export async function getAllFarmPlots(): Promise<FarmPlot[]> {
+  const result = await pool.query<FarmPlot>(
+    `SELECT * FROM farm_plot ORDER BY created_at DESC`
+  );
+  return result.rows;
+}
+
+/**
+ * Get farm plots by user (Farmer's own plots)
+ */
+export async function getFarmPlotsByUserId(userId: number): Promise<FarmPlot[]> {
+  const result = await pool.query<FarmPlot>(
+    `SELECT * FROM farm_plot WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+/**
+ * Get farm plot by ID
+ */
+export async function getFarmPlotById(plotId: number): Promise<FarmPlot | null> {
+  const result = await pool.query<FarmPlot>(
+    `SELECT * FROM farm_plot WHERE plot_id = $1`,
+    [plotId]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Update farm plot status (UC11: Approve/Reject by Super User)
+ */
+export async function updateFarmPlotStatus(
+  plotId: number,
+  status: 'pending' | 'active' | 'rejected',
+  nearestStationId?: number
+): Promise<FarmPlot | null> {
+  const result = await pool.query<FarmPlot>(
+    `UPDATE farm_plot 
+     SET status = $1, nearest_station_id = $2, updated_at = CURRENT_TIMESTAMP
+     WHERE plot_id = $3
+     RETURNING *`,
+    [status, nearestStationId || null, plotId]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Calculate nearest station for a farm plot
+ * Uses Haversine formula for distance calculation
+ */
+export async function findNearestStation(lat: number, lon: number): Promise<Station | null> {
+  const result = await pool.query<Station & { distance: number }>(
+    `SELECT *, 
+     (6371 * acos(cos(radians($1)) * cos(radians(latitude)) * 
+     cos(radians(longitude) - radians($2)) + sin(radians($1)) * 
+     sin(radians(latitude)))) AS distance
+     FROM station
+     WHERE status != 'offline'
+     ORDER BY distance
+     LIMIT 1`,
+    [lat, lon]
+  );
+  return result.rows[0] || null;
+}
+
+// ==================== DISEASE RISK (BUS ALGORITHM) QUERIES ====================
+
+/**
+ * Get hourly temperature and humidity data for BUS Algorithm calculation
+ * Returns data from the last N days for a specific station
+ */
+export async function getHourlyTempHumidityData(
+  stationId: number,
+  days: number = 10
+): Promise<Array<{ timestamp: string; temperature: number; humidity: number }>> {
+  // Get sensor IDs for air_temperature and air_humidity
+  const tempSensor = await findSensorByStationAndType(stationId, 'air_temperature');
+  const humSensor = await findSensorByStationAndType(stationId, 'air_humidity');
+
+  if (!tempSensor || !humSensor) {
+    return [];
+  }
+
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - days);
+
+  // Query to get hourly data by truncating timestamps to the hour
+  const result = await pool.query<{ hour: string; temperature: number; humidity: number }>(`
+    SELECT 
+      DATE_TRUNC('hour', temp_data.recorded_at) AS hour,
+      AVG(temp_data.value) AS temperature,
+      AVG(hum_data.value) AS humidity
+    FROM sensor_data temp_data
+    INNER JOIN sensor_data hum_data 
+      ON DATE_TRUNC('hour', temp_data.recorded_at) = DATE_TRUNC('hour', hum_data.recorded_at)
+    WHERE temp_data.sensor_id = $1
+      AND hum_data.sensor_id = $2
+      AND temp_data.recorded_at >= $3
+      AND hum_data.recorded_at >= $3
+    GROUP BY DATE_TRUNC('hour', temp_data.recorded_at)
+    ORDER BY hour ASC
+  `, [tempSensor.sensor_id, humSensor.sensor_id, fromDate]);
+
+  return result.rows.map(row => ({
+    timestamp: row.hour,
+    temperature: Number(row.temperature),
+    humidity: Number(row.humidity),
+  }));
 }

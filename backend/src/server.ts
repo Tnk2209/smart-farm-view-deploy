@@ -12,6 +12,8 @@ import stationsRouter from './routes/stations.js';
 import sensorsRouter from './routes/sensors.js';
 import alertsRouter from './routes/alerts.js';
 import thresholdsRouter from './routes/thresholds.js';
+import plotsRouter from './routes/plots.js';
+import diseaseRiskRouter from './routes/diseaseRisk.js';
 
 const app = express();
 
@@ -56,6 +58,8 @@ app.use(`${config.apiPrefix}/stations`, stationsRouter);
 app.use(`${config.apiPrefix}/sensors`, sensorsRouter);
 app.use(`${config.apiPrefix}/alerts`, alertsRouter);
 app.use(`${config.apiPrefix}/thresholds`, thresholdsRouter);
+app.use(`${config.apiPrefix}/plots`, plotsRouter);
+app.use(`${config.apiPrefix}/disease-risk`, diseaseRiskRouter);
 
 // 404 handler
 app.use((req, res) => {
