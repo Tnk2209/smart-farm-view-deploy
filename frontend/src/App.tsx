@@ -17,6 +17,7 @@ import StationDetail from "./pages/StationDetail";
 import SensorsList from "./pages/SensorsList";
 import SensorDetail from "./pages/SensorDetail";
 import Alerts from "./pages/Alerts";
+import RiskDashboard from "./pages/RiskDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminThresholds from "./pages/AdminThresholds";
 import AdminSettings from "./pages/AdminSettings";
@@ -63,6 +64,9 @@ const App = () => (
               <Route path="/alerts" element={
                 <ProtectedRoute><Alerts /></ProtectedRoute>
               } />
+              <Route path="/risk-dashboard" element={
+                <ProtectedRoute requiredPermission="view_4_pillars_risk"><RiskDashboard /></ProtectedRoute>
+              } />
 
               {/* Farm Plot Routes (UC10, UC11) */}
               <Route path="/register-plot" element={
@@ -74,12 +78,7 @@ const App = () => (
 
               {/* Disease Risk Route (UC12) */}
               <Route path="/disease-risk" element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'SUPER_USER']}><DiseaseRisk /></ProtectedRoute>
-              } />
-
-              {/* 4 Pillars Risk Dashboard */}
-              <Route path="/risk-dashboard" element={
-                <ProtectedRoute allowedRoles={['MANAGER', 'SUPER_USER']}><RiskDashboard /></ProtectedRoute>
+                <ProtectedRoute requiredPermission="view_4_pillars_risk"><DiseaseRisk /></ProtectedRoute>
               } />
 
               {/* Admin Routes */}

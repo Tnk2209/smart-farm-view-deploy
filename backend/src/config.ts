@@ -23,6 +23,7 @@ interface Config {
     username?: string;
     password?: string;
     topic: string;
+    topics: string[]; // Support multiple topics
   };
   cors: {
     origin: string;
@@ -46,6 +47,11 @@ export const config: Config = {
     username: process.env.MQTT_USERNAME,
     password: process.env.MQTT_PASSWORD,
     topic: process.env.MQTT_TOPIC || 'smartfarm/telemetry/#', // เปลี่ยนกลับมาใช้ env variable
+    // Support multiple topics - can be comma-separated in env
+    // Falls back to MQTT_TOPIC if MQTT_TOPICS is not set
+    topics: process.env.MQTT_TOPICS 
+      ? process.env.MQTT_TOPICS.split(',').map(t => t.trim())
+      : [process.env.MQTT_TOPIC || 'smartfarm/telemetry/#'],
   },
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',

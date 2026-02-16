@@ -5,7 +5,7 @@ import { UserRole } from '@/lib/types';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredPermission?: 'view_dashboard' | 'view_sensor_data' | 'manage_station' | 'manage_sensor' | 'configure_threshold' | 'manage_user';
+  requiredPermission?: 'view_dashboard' | 'view_sensor_data' | 'manage_station' | 'manage_sensor' | 'configure_threshold' | 'manage_user' | 'view_4_pillars_risk';
   allowedRoles?: UserRole[];
 }
 

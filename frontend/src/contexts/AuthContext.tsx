@@ -17,13 +17,14 @@ type Permission =
   | 'manage_station' 
   | 'manage_sensor'
   | 'configure_threshold' 
-  | 'manage_user';
+  | 'manage_user'
+  | 'view_4_pillars_risk';
 
 // Role-based permissions matrix (from document STEP 7.5)
 const rolePermissions: Record<UserRole, Permission[]> = {
   USER: ['view_dashboard', 'view_sensor_data'],
-  MANAGER: ['view_dashboard', 'view_sensor_data', 'manage_station', 'manage_sensor'],
-  SUPER_USER: ['view_dashboard', 'view_sensor_data', 'manage_station', 'manage_sensor', 'configure_threshold', 'manage_user'],
+  MANAGER: ['view_dashboard', 'view_sensor_data', 'manage_station', 'manage_sensor', 'view_4_pillars_risk'],
+  SUPER_USER: ['view_dashboard', 'view_sensor_data', 'manage_station', 'manage_sensor', 'configure_threshold', 'manage_user', 'view_4_pillars_risk'],
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

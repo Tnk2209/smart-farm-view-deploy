@@ -835,3 +835,50 @@ export const getDiseaseRiskSummary = async (
     };
   }
 };
+
+// ============ LOCK CONTROL API (UC13) ============
+
+/**
+ * POST /api/stations/:id/lock/command
+ * Send lock/unlock command to station
+ * Access: SUPER_USER only
+ */
+export const sendLockCommand = async (
+  stationId: number,
+  action: 'lock' | 'unlock'
+): Promise<ApiResponse<any>> => {
+  try {
+    return await apiFetch<ApiResponse<any>>(
+      `/stations/${stationId}/lock/command`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      }
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send lock command',
+    };
+  }
+};
+
+/**
+ * GET /api/stations/:id/lock/status
+ * Get current lock status from gate_door sensor
+ * Access: All authenticated users
+ */
+export const getLockStatus = async (
+  stationId: number
+): Promise<ApiResponse<any>> => {
+  try {
+    return await apiFetch<ApiResponse<any>>(
+      `/stations/${stationId}/lock/status`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get lock status',
+    };
+  }
+};

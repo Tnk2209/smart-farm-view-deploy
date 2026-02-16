@@ -5,6 +5,39 @@ import { processTelemetryMessage, validateTelemetryMessage } from '../services/t
 let mqttClient: mqtt.MqttClient | null = null;
 
 /**
+ * Process incoming MQTT message (all topics routed to telemetry handler)
+ * 
+ * Note: Currently all messages are treated as telemetry data.
+ * If you need different handlers for different message types in the future,
+ * consider implementing topic-based routing.
+ */
+async function processMessage(topic: string, payload: any): Promise<void> {
+  console.log(`📊 Processing message from topic: ${topic}`);
+  
+  // Validate telemetry structure
+  if (!validateTelemetryMessage(payload)) {
+    console.error('❌ Invalid telemetry message structure');
+    console.error('   Make sure the message follows the expected format');
+    return;
+  }
+
+  // Process telemetry
+  const result = await processTelemetryMessage(payload);
+  
+  if (result.success) {
+    console.log(`✅ ${result.message}`);
+    console.log(`   📊 Records created: ${result.recordsCreated}`);
+    console.log(`   ⚠️  Alerts triggered: ${result.alertsTriggered}`);
+    
+    if (result.errors && result.errors.length > 0) {
+      console.log('   ⚠️  Warnings:', result.errors);
+    }
+  } else {
+    console.error(`❌ ${result.message}`);
+  }
+}
+
+/**
  * Initialize MQTT subscriber
  * Connects to MQTT broker and subscribes to telemetry topic
  */
@@ -30,17 +63,22 @@ export function initializeMqttSubscriber(): void {
   mqttClient.on('connect', () => {
     console.log('✅ Connected to MQTT broker');
     console.log(`📍 Broker: ${config.mqtt.brokerUrl}`);
-    console.log(`📋 Topic to subscribe: "${config.mqtt.topic}"`);
-    console.log(`📏 Topic length: ${config.mqtt.topic.length} characters`);
+    console.log(`📋 Topics to subscribe (${config.mqtt.topics.length}):`);
+    config.mqtt.topics.forEach((topic, idx) => {
+      console.log(`   ${idx + 1}. "${topic}"`);
+    });
     
-    // Subscribe to telemetry topic
-    mqttClient!.subscribe(config.mqtt.topic, { qos: 1 }, (err, granted) => {
+    // Subscribe to multiple topics
+    mqttClient!.subscribe(config.mqtt.topics, { qos: 1 }, (err, granted) => {
       if (err) {
-        console.error('❌ Failed to subscribe to topic:', err);
+        console.error('❌ Failed to subscribe to topics:', err);
       } else {
         console.log(`📡 Subscribed successfully!`);
-        console.log(`   Granted subscriptions:`, granted);
-        console.log(`🎯 Waiting for messages on: ${config.mqtt.topic}\n`);
+        console.log(`   Granted subscriptions:`);
+        granted?.forEach((g) => {
+          console.log(`      ✓ ${g.topic} (QoS: ${g.qos})`);
+        });
+        console.log(`🎯 Waiting for messages...\n`);
       }
     });
   });
@@ -58,26 +96,8 @@ export function initializeMqttSubscriber(): void {
       const payload = JSON.parse(message.toString());
       console.log('📦 Parsed payload:', JSON.stringify(payload, null, 2));
 
-      // Validate telemetry structure
-      if (!validateTelemetryMessage(payload)) {
-        console.error('❌ Invalid telemetry message structure');
-        return;
-      }
-
-      // Process telemetry
-      const result = await processTelemetryMessage(payload);
-      
-      if (result.success) {
-        console.log(`✅ ${result.message}`);
-        console.log(`   📊 Records created: ${result.recordsCreated}`);
-        console.log(`   ⚠️  Alerts triggered: ${result.alertsTriggered}`);
-        
-        if (result.errors && result.errors.length > 0) {
-          console.log('   ⚠️  Warnings:', result.errors);
-        }
-      } else {
-        console.error(`❌ ${result.message}`);
-      }
+      // Process message (all topics handled the same way)
+      await processMessage(topic, payload);
       
     } catch (error) {
       console.error('❌ Error processing MQTT message:', error);

@@ -12,7 +12,8 @@
     "db:seed": "tsx src/database/seed.ts",
     "test": "vitest",
     "test:mqtt": "tsx scripts/test-mqtt-publish.ts",
-    "test:mqtt:js": "node scripts/test-publish.js"
+    "test:mqtt:js": "node scripts/test-publish.js",
+    "test:mqtt:multiple": "tsx scripts/test-multiple-topics.ts"
   },
   "keywords": [
     "iot",
