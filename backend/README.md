@@ -125,11 +125,31 @@ mosquitto_sub -t "test"
 
 ### MQTT Topic Structure
 
-Backend subscribe topic: `smartfarm/telemetry/#`
+Backend รองรับการ subscribe **หลาย topics พร้อมกัน**:
+
+**Single Topic (backward compatible):**
+```env
+MQTT_TOPIC=smartfarm/telemetry/#
+```
+
+**Multiple Topics (แนะนำ):**
+```env
+MQTT_TOPICS=smartfarm/telemetry/#,smartfarm/alerts/#,smartfarm/commands/#,smartfarm/status/#
+```
+
+แต่ละ topic จะถูก route ไปยัง handler ที่เหมาะสม:
+- 📊 **telemetry/** - ข้อมูล sensors (implemented)
+- 🚨 **alerts/** - การแจ้งเตือน (TODO)
+- 🎮 **commands/** - คำสั่งควบคุม (TODO)
+- 💚 **status/** - สถานะอุปกรณ์ (TODO)
+
+> 📖 **คู่มือฉบับสมบูรณ์:** [MQTT Multiple Topics Guide](docs/MQTT-MULTIPLE-TOPICS-GUIDE.md)
 
 ตัวอย่าง topic ที่ IoT device ส่งมา:
 - `smartfarm/telemetry/IG502-ABC123`
 - `smartfarm/telemetry/station/chiang-mai`
+- `smartfarm/alerts/STATION001`
+- `smartfarm/status/STATION001`
 
 ## 📨 Telemetry Message Format
 
