@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/StatusBadge';
-import { MapPin, Info, Tractor } from 'lucide-react';
+import { MapPin, Info, Tractor, RotateCcw } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -68,6 +68,64 @@ function MapBounds({ stations, plots }: { stations: Station[], plots: FarmPlot[]
       map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [stations, plots, map]);
+
+  return null;
+}
+
+function MapResetControl() {
+  const map = useMap();
+
+  const handleReset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    map.setView([13.7563, 100.5018], 6);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="icon"
+      className="absolute top-20 right-4 z-[400] shadow-md bg-white/90 hover:bg-white border text-primary"
+      onClick={handleReset}
+      title="Reset View"
+    >
+      <RotateCcw className="h-4 w-4" />
+    </Button>
+  );
+}
+
+// Helper component to handle Ctrl key interactions
+function MapInteractionHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Disable interactions initially
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        map.dragging.enable();
+        map.scrollWheelZoom.enable();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        map.dragging.disable();
+        map.scrollWheelZoom.disable();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      // Clean up by re-enabling default behavior if needed, or keeping it consistent
+    };
+  }, [map]);
 
   return null;
 }
@@ -148,8 +206,11 @@ export default function MapView() {
                 center={[13.7563, 100.5018]}
                 zoom={6}
                 className="h-full w-full min-h-[500px]"
-                scrollWheelZoom={true}
+                scrollWheelZoom={false}
+                dragging={false}
               >
+                <MapInteractionHandler />
+                <MapResetControl />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -238,6 +299,16 @@ export default function MapView() {
                     <span className="text-black">แปลงนาของคุณ</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Interaction Hint */}
+              <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border flex items-center gap-2 pointer-events-none">
+                <div className="bg-primary/10 p-1.5 rounded">
+                  <span className="text-xs font-bold text-primary">Ctrl</span>
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">
+                  + Scroll / Drag to Zoom & Pan
+                </span>
               </div>
             </CardContent>
           </Card>

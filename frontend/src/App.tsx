@@ -25,7 +25,6 @@ import RegisterPlot from "./pages/RegisterPlot";
 import ApprovePlots from "./pages/ApprovePlots";
 import DiseaseRisk from "./pages/DiseaseRisk";
 import NotFound from "./pages/NotFound";
-import RiskDashboard from "./pages/RiskDashboard";
 
 const queryClient = new QueryClient();
 

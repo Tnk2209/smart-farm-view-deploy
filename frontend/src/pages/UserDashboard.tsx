@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Sprout, Wind, Droplets, Thermometer, CloudRain, Clock, Map as MapIcon, Info, TrendingUp, AlertTriangle, CloudFog, Gauge, Monitor, Radio, Activity } from 'lucide-react';
+import { MapPin, Sprout, Wind, Droplets, Thermometer, CloudRain, Clock, Map as MapIcon, Info, TrendingUp, AlertTriangle, CloudFog, Gauge, Monitor, Radio, Activity, RotateCcw } from 'lucide-react';
 import { format, subDays, subHours } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -63,6 +63,63 @@ function MapCentering({ center }: { center: [number, number] }) {
         map.setView(center, 13); // Zoom level 13 is good for ~5-10km range
     }, [center, map]);
     return null;
+}
+
+// Helper component to handle Ctrl key interactions
+function MapInteractionHandler() {
+    const map = useMap();
+
+    useEffect(() => {
+        // Disable interactions initially
+        map.dragging.disable();
+        map.scrollWheelZoom.disable();
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Control') {
+                map.dragging.enable();
+                map.scrollWheelZoom.enable();
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Control') {
+                map.dragging.disable();
+                map.scrollWheelZoom.disable();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [map]);
+
+    return null;
+}
+
+function MapResetControl() {
+    const map = useMap();
+
+    const handleReset = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        map.setView([13.7563, 100.5018], 10);
+    };
+
+    return (
+        <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="absolute top-20 right-4 z-[400] shadow-md bg-white/90 hover:bg-white border text-primary"
+            onClick={handleReset}
+            title="Reset View"
+        >
+            <RotateCcw className="h-4 w-4" />
+        </Button>
+    );
 }
 
 export default function UserDashboard() {
@@ -319,7 +376,10 @@ export default function UserDashboard() {
                                     zoom={13}
                                     className="h-full w-full"
                                     scrollWheelZoom={false}
+                                    dragging={false}
                                 >
+                                    <MapInteractionHandler />
+                                    <MapResetControl />
                                     <TileLayer
                                         attribution='&copy; OpenStreetMap'
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -368,6 +428,16 @@ export default function UserDashboard() {
                                     <div className="flex justify-between"><span>UTM:</span> <span className="font-mono">{currentPlot?.utm_coords || '-'}</span></div>
                                     <div className="flex justify-between text-muted-foreground mt-2"><span>Nearest Station:</span> <span>{station?.station_name || 'N/A'}</span></div>
                                 </div>
+                            </div>
+
+                            {/* Interaction Hint */}
+                            <div className="absolute bottom-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-md border flex items-center gap-2 pointer-events-none">
+                                <div className="bg-primary/10 p-1.5 rounded">
+                                    <span className="text-xs font-bold text-primary">Ctrl</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                    + Scroll / Drag to Zoom & Pan
+                                </span>
                             </div>
                         </div>
                     </Card>
@@ -465,8 +535,8 @@ export default function UserDashboard() {
                         </Tabs>
                     </CardContent>
                 </Card>
-            </div>
-        </DashboardLayout>
+            </div >
+        </DashboardLayout >
     );
 }
 
