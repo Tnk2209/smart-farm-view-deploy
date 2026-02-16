@@ -1,8 +1,8 @@
 // API functions that connect to real backend
 // Based on API Specification from System Design Document (STEP 7)
 
-import { 
-  User, Station, Sensor, SensorData, Alert, Threshold, 
+import {
+  User, Station, Sensor, SensorData, Alert, Threshold,
   DashboardSummary, ApiResponse, UserRole, Role, FarmPlot,
   StationDiseaseRisk, PlotDiseaseRisk, AllStationsDiseaseRisk,
   RiskDashboardSummary, PillarSummary
@@ -16,7 +16,7 @@ import { apiFetch, apiConfig } from './apiConfig';
  * Login with username and password, returns JWT token
  */
 export const login = async (
-  username: string, 
+  username: string,
   password: string
 ): Promise<ApiResponse<{ user: User; token: string }>> => {
   try {
@@ -27,12 +27,12 @@ export const login = async (
         body: JSON.stringify({ username, password }),
       }
     );
-    
+
     // Store token if login successful
     if (response.success && response.data?.token) {
       apiConfig.setToken(response.data.token);
     }
-    
+
     return response;
   } catch (error) {
     return {
@@ -51,9 +51,9 @@ export const logout = async (): Promise<ApiResponse<void>> => {
     await apiFetch<ApiResponse<void>>('/auth/logout', {
       method: 'POST',
     });
-    
+
     apiConfig.removeToken();
-    
+
     return { success: true };
   } catch (error) {
     // Even if API call fails, remove token
@@ -131,7 +131,16 @@ export const getUserById = async (id: number): Promise<ApiResponse<User>> => {
  * Create new user (Super User only)
  */
 export const createUser = async (
-  user: { username: string; password: string; email: string; role_id: number }
+  user: {
+    username: string;
+    password: string;
+    email: string;
+    role_id: number;
+    firstName?: string;
+    lastName?: string;
+    nationalId?: string;
+    phoneNumber?: string;
+  }
 ): Promise<ApiResponse<User>> => {
   try {
     return await apiFetch<ApiResponse<User>>('/users', {
@@ -152,7 +161,17 @@ export const createUser = async (
  */
 export const updateUser = async (
   id: number,
-  updates: { username: string; email: string; role_id: number; status: string; password?: string }
+  updates: {
+    username: string;
+    email: string;
+    role_id: number;
+    status: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+    nationalId?: string;
+    phoneNumber?: string;
+  }
 ): Promise<ApiResponse<User>> => {
   try {
     return await apiFetch<ApiResponse<User>>(`/users/${id}`, {
@@ -314,7 +333,7 @@ export const getSensorData = async (
     const params = new URLSearchParams();
     if (from) params.append('from', from);
     if (to) params.append('to', to);
-    
+
     const query = params.toString() ? `?${params.toString()}` : '';
     return await apiFetch<ApiResponse<SensorData[]>>(`/sensors/${id}/data${query}`);
   } catch (error) {
@@ -531,20 +550,20 @@ export const getDashboardSummary = async (): Promise<ApiResponse<DashboardSummar
       getStations(),
       getUnacknowledgedAlerts(),
     ]);
-    
+
     if (!stationsRes.success || !alertsRes.success) {
       throw new Error('Failed to fetch dashboard data');
     }
-    
+
     const stations = stationsRes.data || [];
     const alerts = alertsRes.data || [];
-    
+
     // Calculate summary
     const totalSensors = stations.reduce((sum, s) => sum + (s.sensor_count || 0), 0);
     const normalStations = stations.filter(s => s.status === 'normal').length;
     const warningStations = stations.filter(s => s.status === 'warning').length;
     const criticalStations = stations.filter(s => s.status === 'critical').length;
-    
+
     const summary: DashboardSummary = {
       total_stations: stations.length,
       total_sensors: totalSensors,
@@ -553,7 +572,7 @@ export const getDashboardSummary = async (): Promise<ApiResponse<DashboardSummar
       warning_stations: warningStations,
       critical_stations: criticalStations,
     };
-    
+
     return { success: true, data: summary };
   } catch (error) {
     return {

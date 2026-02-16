@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { MapPin, CheckCircle, Clock, XCircle, Leaf } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapPin, CheckCircle, Clock, XCircle, Leaf, Maximize2, Minimize2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, LayersControl } from 'react-leaflet';
+
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import proj4 from 'proj4';
@@ -50,6 +51,17 @@ function LocationMarker({ position, setPosition }: { position: { lat: number, ln
   );
 }
 
+// Component to handle map resize
+function MapResizer({ isExpanded }: { isExpanded: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [isExpanded, map]);
+  return null;
+}
+
 /**
  * UC10: Register Farm Plot
  * Farmer can register a plot by picking a location on the map.
@@ -61,6 +73,7 @@ export default function RegisterPlot() {
   const [myPlots, setMyPlots] = useState<FarmPlot[]>([]);
   const [loadingPlots, setLoadingPlots] = useState(true);
   const [mapPosition, setMapPosition] = useState<{ lat: number, lng: number } | null>(null);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   const [formData, setFormData] = useState({
     lat: '',
@@ -100,6 +113,9 @@ export default function RegisterPlot() {
   };
 
   const handleMapSelect = (pos: { lat: number, lng: number }) => {
+    if (isMapExpanded) {
+      setIsMapExpanded(false);
+    }
     setMapPosition(pos);
 
     // Logic to select correct UTM Zone for Thailand
@@ -261,23 +277,75 @@ export default function RegisterPlot() {
             </CardHeader>
             <CardContent>
               {/* Map Section */}
-              <div className="mb-6 border rounded-md overflow-hidden relative z-0">
+              <div
+                className={`${isMapExpanded
+                    ? 'fixed inset-0 z-[9999] h-[300vh] w-[100vw] bg-background flex flex-col' // Force explicit viewport units and high z-index
+                    : 'mb-6 border-2 border-muted rounded-xl overflow-hidden relative z-0 shadow-sm'
+                  }`}
+              >
+                {/* Floating Toggle Button */}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-4 right-4 z-[10000] shadow-lg rounded-full bg-white/90 hover:bg-white border-2 border-primary/10 transition-all transform hover:scale-105"
+                  onClick={() => setIsMapExpanded(!isMapExpanded)}
+                >
+                  {isMapExpanded ? (
+                    <Minimize2 className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Maximize2 className="h-5 w-5 text-primary" />
+                  )}
+                </Button>
+
                 <MapContainer
                   center={[13.7563, 100.5018]}
                   zoom={6}
-                  className="h-[300px] w-full"
+                  className="w-full outline-none"
+                  style={{ height: isMapExpanded ? '100%' : '350px' }} // Explicit styling for Leaflet
                   scrollWheelZoom={true}
                 >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <MapResizer isExpanded={isMapExpanded} />
+
+                  <LayersControl position="topleft">
+                    <LayersControl.BaseLayer checked name="แผนที่ทั่วไป">
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                    </LayersControl.BaseLayer>
+                    <LayersControl.BaseLayer name="ภาพดาวเทียม">
+                      <TileLayer
+                        attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                        url="https://server.arcgisonoline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                      />
+                    </LayersControl.BaseLayer>
+                  </LayersControl>
+
                   <LocationMarker position={mapPosition} setPosition={handleMapSelect} />
                 </MapContainer>
-                <div className="bg-muted text-xs p-1 text-center text-muted-foreground border-t">
-                  คลิกที่แผนที่เพื่อปักหมุดตำแหน่ง
-                </div>
+
+                {/* Instructions Overlay */}
+                {!isMapExpanded ? (
+                  <div className="bg-muted/90 backdrop-blur-sm text-xs py-2 text-center text-muted-foreground border-t font-medium">
+                    คลิกที่แผนที่เพื่อปักหมุดตำแหน่ง
+                  </div>
+                ) : (
+                  <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-[10000] pointer-events-none">
+                    <div className="bg-black/70 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-white/20 whitespace-nowrap">
+                      <MapPin className="h-5 w-5 text-green-400" />
+                      <span className="font-medium">คลิกบนแผนที่เพื่อเลือกตำแหน่งและยืนยัน</span>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Placeholder to prevent layout shift when map is expanded */}
+              {isMapExpanded && (
+                <div className="mb-6 h-[300px] border rounded-md bg-muted/10 flex items-center justify-center text-muted-foreground">
+                  <MapPin className="h-8 w-8 opacity-20" />
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -370,7 +438,7 @@ export default function RegisterPlot() {
                   <p>ยังไม่มีแปลงนาที่ลงทะเบียน</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                <div className="space-y-3 max-h-[750px] overflow-y-auto pr-2">
                   {myPlots.map((plot) => (
                     <div
                       key={plot.plot_id}

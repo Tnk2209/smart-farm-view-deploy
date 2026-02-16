@@ -11,6 +11,10 @@ export interface User {
   user_id: number;
   username: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
+  national_id?: string;
+  phone_number?: string;
   role_id: number;
   role: UserRole;
   status: 'active' | 'inactive';
@@ -27,6 +31,7 @@ export interface Station {
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
   sensor_count?: number;
+  last_active?: string;
 }
 
 export interface Sensor {

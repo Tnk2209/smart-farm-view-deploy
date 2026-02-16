@@ -5,7 +5,7 @@ export type AlertSeverity = 'low' | 'medium' | 'high';
 export type StationStatus = 'normal' | 'warning' | 'critical' | 'offline';
 export type SensorStatus = 'active' | 'inactive' | 'error';
 
-export type SensorType = 
+export type SensorType =
   | 'wind_speed'
   | 'air_temperature'
   | 'air_humidity'
@@ -73,6 +73,10 @@ export interface User {
   username: string;
   password_hash: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
+  national_id?: string;
+  phone_number?: string;
   role_id: number;
   role: UserRole; // Role name from join with Role table
   status: 'active' | 'inactive' | 'suspended';

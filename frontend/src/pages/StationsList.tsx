@@ -8,20 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import {
   Pagination,
@@ -62,7 +62,7 @@ export default function StationsList() {
   }, []);
 
   const filteredStations = stations.filter(station => {
-    const matchesSearch = 
+    const matchesSearch =
       station.station_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       station.province.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || station.status === statusFilter;
@@ -79,6 +79,21 @@ export default function StationsList() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
+
+  const calculateStatus = (station: Station) => {
+    // If explicitly marked offline related status in DB, respect it?
+    // But user wants to identify missing data.
+    if (!station.last_active) return 'offline';
+
+    // Check if data is stale (> 24 hours)
+    const lastActive = new Date(station.last_active);
+    const now = new Date();
+    const diffHours = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60);
+
+    if (diffHours > 24) return 'offline';
+
+    return station.status;
+  };
 
   const getPageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
@@ -214,7 +229,7 @@ export default function StationsList() {
                       </TableCell>
                       <TableCell>{station.province}</TableCell>
                       <TableCell>
-                        <StatusBadge status={station.status} size="sm" />
+                        <StatusBadge status={calculateStatus(station)} size="sm" />
                       </TableCell>
                       <TableCell>{station.sensor_count || 0}</TableCell>
                       <TableCell>
@@ -245,12 +260,12 @@ export default function StationsList() {
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious 
+                      <PaginationPrevious
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                       />
                     </PaginationItem>
-                    
+
                     {getPageNumbers().map((page, index) => (
                       <PaginationItem key={index}>
                         {page === 'ellipsis' ? (
@@ -268,7 +283,7 @@ export default function StationsList() {
                     ))}
 
                     <PaginationItem>
-                      <PaginationNext 
+                      <PaginationNext
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                       />

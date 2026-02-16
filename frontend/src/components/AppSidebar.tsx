@@ -43,10 +43,10 @@ const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
   { title: 'Map View', url: '/map', icon: MapPin, permission: 'view_dashboard' },
   { title: 'Stations', url: '/stations', icon: Radio, permission: 'view_dashboard' },
-  { title: 'Sensors', url: '/sensors', icon: Thermometer, permission: 'view_sensor_data' },
+  { title: 'Sensors', url: '/sensors', icon: Thermometer, permission: 'view_sensor_data', allowedRoles: ['MANAGER', 'SUPER_USER'] },
   { title: 'Alerts', url: '/alerts', icon: AlertTriangle, permission: 'view_dashboard' },
-  { title: '4 Pillars Risk', url: '/risk-dashboard', icon: TrendingUp, permission: 'view_dashboard' },
-  { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard' },
+  { title: '4 Pillars Risk', url: '/risk-dashboard', icon: TrendingUp, permission: 'view_dashboard', allowedRoles: ['MANAGER', 'SUPER_USER'] },
+  { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard', allowedRoles: ['MANAGER', 'SUPER_USER'] },
   { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard', allowedRoles: ['USER'] },
 ];
 

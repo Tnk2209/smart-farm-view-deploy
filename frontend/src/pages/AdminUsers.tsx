@@ -8,20 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import {
   Dialog,
@@ -66,6 +66,10 @@ export default function AdminUsers() {
     password: '',
     role_id: 1,
     status: 'active' as 'active' | 'inactive' | 'suspended',
+    firstName: '',
+    lastName: '',
+    nationalId: '',
+    phoneNumber: '',
   });
 
   useEffect(() => {
@@ -103,10 +107,20 @@ export default function AdminUsers() {
   };
 
   const handleCreate = async () => {
-    if (!formData.username || !formData.email || !formData.password) {
+    // Validate required fields
+    if (!formData.username || !formData.email || !formData.password || !formData.firstName || !formData.lastName || !formData.nationalId || !formData.phoneNumber) {
       toast({
         title: "Validation Error",
-        description: "Please fill all required fields.",
+        description: "Please fill all required fields, including personal information.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.nationalId.length !== 13) {
+      toast({
+        title: "Validation Error",
+        description: "National ID must be 13 digits.",
         variant: "destructive",
       });
       return;
@@ -118,6 +132,10 @@ export default function AdminUsers() {
         email: formData.email,
         password: formData.password,
         role_id: formData.role_id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        nationalId: formData.nationalId,
+        phoneNumber: formData.phoneNumber,
       });
 
       if (response.success && response.data) {
@@ -149,6 +167,10 @@ export default function AdminUsers() {
         email: formData.email,
         role_id: formData.role_id,
         status: formData.status,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        nationalId: formData.nationalId,
+        phoneNumber: formData.phoneNumber,
       };
 
       // Only include password if it's provided
@@ -159,7 +181,7 @@ export default function AdminUsers() {
       const response = await updateUser(editingUser.user_id, updates);
 
       if (response.success && response.data) {
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.user_id === editingUser.user_id ? response.data! : u
         ));
         setEditingUser(null);
@@ -193,7 +215,7 @@ export default function AdminUsers() {
       });
 
       if (response.success && response.data) {
-        setUsers(prev => prev.map(u => 
+        setUsers(prev => prev.map(u =>
           u.user_id === userId ? response.data! : u
         ));
         toast({
@@ -211,12 +233,16 @@ export default function AdminUsers() {
   };
 
   const resetForm = () => {
-    setFormData({ 
-      username: '', 
-      email: '', 
-      password: '', 
-      role_id: 1, 
-      status: 'active' 
+    setFormData({
+      username: '',
+      email: '',
+      password: '',
+      role_id: 1,
+      status: 'active',
+      firstName: '',
+      lastName: '',
+      nationalId: '',
+      phoneNumber: '',
     });
   };
 
@@ -228,11 +254,15 @@ export default function AdminUsers() {
       password: '', // Don't show existing password
       role_id: user.role_id,
       status: user.status,
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      nationalId: user.national_id || '',
+      phoneNumber: user.phone_number || '',
     });
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -242,20 +272,20 @@ export default function AdminUsers() {
   const getRoleBadgeInfo = (role: UserRole) => {
     switch (role) {
       case 'SUPER_USER':
-        return { 
-          label: 'Super User', 
+        return {
+          label: 'Super User',
           className: 'bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200',
           icon: ShieldCheck
         };
       case 'MANAGER':
-        return { 
-          label: 'Manager', 
+        return {
+          label: 'Manager',
           className: 'bg-orange-100 text-orange-800 hover:bg-orange-100 border-orange-200',
           icon: Shield
         };
       default:
-        return { 
-          label: 'User', 
+        return {
+          label: 'User',
           className: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200',
           icon: UserIcon
         };
@@ -291,60 +321,108 @@ export default function AdminUsers() {
                 Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[925px]">
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
                   Add a new user to the system. They will receive an email with login details.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                    placeholder="johndoe"
-                  />
+              <div className="flex-1 max-h-[70vh] px-2 py-4 space-y-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Personal Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                        placeholder="Somsak"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                        placeholder="Jai-dee"
+                      />
+                    </div>
+                  </div>
+                  <div className=" grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nationalId">National ID</Label>
+                      <Input
+                        id="nationalId"
+                        value={formData.nationalId}
+                        onChange={(e) => setFormData(prev => ({ ...prev, nationalId: e.target.value }))}
+                        placeholder="1234567890123"
+                        maxLength={13}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phoneNumber">Phone Number</Label>
+                      <Input
+                        id="phoneNumber"
+                        value={formData.phoneNumber}
+                        onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                        placeholder="0812345678"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="john@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select 
-                    value={formData.role_id.toString()} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.role_id} value={role.role_id.toString()}>
-                          {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Account Credentials</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                      placeholder="johndoe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select
+                      value={formData.role_id.toString()}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => (
+                          <SelectItem key={role.role_id} value={role.role_id.toString()}>
+                            {role.role_name === 'SUPER_USER' ? 'Super User' : role.role_name.charAt(0) + role.role_name.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -441,13 +519,13 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell className="text-right pr-6">
                           <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Dialog 
-                              open={editingUser?.user_id === user.user_id} 
+                            <Dialog
+                              open={editingUser?.user_id === user.user_id}
                               onOpenChange={(open) => !open && setEditingUser(null)}
                             >
                               <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
                                   onClick={() => openEditDialog(user)}
@@ -473,9 +551,41 @@ export default function AdminUsers() {
                                       />
                                     </div>
                                     <div className="space-y-2">
+                                      <Label htmlFor="edit-firstName">First Name</Label>
+                                      <Input
+                                        id="edit-firstName"
+                                        value={formData.firstName}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="edit-lastName">Last Name</Label>
+                                      <Input
+                                        id="edit-lastName"
+                                        value={formData.lastName}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="edit-nationalId">National ID</Label>
+                                      <Input
+                                        id="edit-nationalId"
+                                        value={formData.nationalId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, nationalId: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="edit-phoneNumber">Phone Number</Label>
+                                      <Input
+                                        id="edit-phoneNumber"
+                                        value={formData.phoneNumber}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="space-y-2">
                                       <Label htmlFor="edit-role">Role</Label>
-                                      <Select 
-                                        value={formData.role_id.toString()} 
+                                      <Select
+                                        value={formData.role_id.toString()}
                                         onValueChange={(value) => setFormData(prev => ({ ...prev, role_id: parseInt(value) }))}
                                       >
                                         <SelectTrigger>
@@ -512,8 +622,8 @@ export default function AdminUsers() {
                                   </div>
                                   <div className="space-y-2">
                                     <Label htmlFor="edit-status">Account Status</Label>
-                                    <Select 
-                                      value={formData.status} 
+                                    <Select
+                                      value={formData.status}
                                       onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}
                                     >
                                       <SelectTrigger>
@@ -563,8 +673,8 @@ export default function AdminUsers() {
                                   <AlertDialogDescription>
                                     Are you sure you want to {user.status === 'active' ? 'suspend' : 'activate'} <strong>{user.username}</strong>?
                                     <br />
-                                    {user.status === 'active' 
-                                      ? "User will lose access to the system immediately." 
+                                    {user.status === 'active'
+                                      ? "User will lose access to the system immediately."
                                       : "User will regain access to the system."}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>

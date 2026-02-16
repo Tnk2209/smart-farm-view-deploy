@@ -1,5 +1,5 @@
 import { pool } from './connection.js';
-import type { 
+import type {
   Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot
 } from '../types.js';
 
@@ -15,21 +15,31 @@ export async function findStationByDeviceId(deviceId: string): Promise<Station |
 
 export async function getAllStations(): Promise<Station[]> {
   const result = await pool.query<Station>(
-    'SELECT * FROM station ORDER BY station_name'
+    `SELECT *, 
+      (SELECT COUNT(*)::int FROM sensor WHERE sensor.station_id = station.station_id) as sensor_count,
+      (SELECT MAX(sd.recorded_at) 
+       FROM sensor_data sd 
+       JOIN sensor s ON sd.sensor_id = s.sensor_id 
+       WHERE s.station_id = station.station_id) as last_active
+     FROM station 
+     ORDER BY station_name`
   );
   return result.rows;
 }
 
 export async function getStationById(stationId: number): Promise<Station | null> {
   const result = await pool.query<Station>(
-    'SELECT * FROM station WHERE station_id = $1',
+    `SELECT *, 
+      (SELECT COUNT(*)::int FROM sensor WHERE sensor.station_id = station.station_id) as sensor_count 
+     FROM station 
+     WHERE station_id = $1`,
     [stationId]
   );
   return result.rows[0] || null;
 }
 
 export async function updateStationStatus(
-  stationId: number, 
+  stationId: number,
   status: Station['status']
 ): Promise<void> {
   await pool.query(
@@ -378,14 +388,19 @@ export async function createUser(
   username: string,
   passwordHash: string,
   email: string,
-  roleId: number
+  roleId: number,
+  firstName?: string,
+  lastName?: string,
+  nationalId?: string,
+  phoneNumber?: string
 ): Promise<User> {
   const result = await pool.query<User>(
-    `INSERT INTO "User" (username, password_hash, email, role_id, status) 
-     VALUES ($1, $2, $3, $4, 'active') 
+    `INSERT INTO "User" (username, password_hash, email, role_id, first_name, last_name, national_id, phone_number, status) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active') 
      RETURNING *`,
-    [username, passwordHash, email, roleId]
+    [username, passwordHash, email, roleId, firstName || null, lastName || null, nationalId || null, phoneNumber || null]
   );
+
   return result.rows[0];
 }
 
@@ -394,14 +409,19 @@ export async function updateUser(
   username: string,
   email: string,
   roleId: number,
-  status: User['status']
+  status: User['status'],
+  firstName?: string,
+  lastName?: string,
+  nationalId?: string,
+  phoneNumber?: string
 ): Promise<User | null> {
   const result = await pool.query<User>(
     `UPDATE "User" 
-     SET username = $1, email = $2, role_id = $3, status = $4 
-     WHERE user_id = $5 
+     SET username = $1, email = $2, role_id = $3, status = $4, 
+         first_name = $5, last_name = $6, national_id = $7, phone_number = $8
+     WHERE user_id = $9 
      RETURNING *`,
-    [username, email, roleId, status, userId]
+    [username, email, roleId, status, firstName || null, lastName || null, nationalId || null, phoneNumber || null, userId]
   );
   return result.rows[0] || null;
 }

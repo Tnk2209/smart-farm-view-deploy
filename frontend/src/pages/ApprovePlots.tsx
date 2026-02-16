@@ -180,7 +180,7 @@ export default function ApprovePlots() {
       );
       return { ...station, distance };
     })
-      .filter(station => station.distance <= 10) // Filter for 10km radius (UC requirement)
+      .filter(station => station.distance <= 50) // Filter for 10km radius (UC requirement)
       .sort((a, b) => a.distance - b.distance);
   }, [stations, selectedPlot]);
 

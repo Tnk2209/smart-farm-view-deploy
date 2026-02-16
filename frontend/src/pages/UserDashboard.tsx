@@ -10,9 +10,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Sprout, Wind, Droplets, Thermometer, CloudRain, Clock, Map as MapIcon, Info, TrendingUp, AlertTriangle, CloudFog } from 'lucide-react';
+import { MapPin, Sprout, Wind, Droplets, Thermometer, CloudRain, Clock, Map as MapIcon, Info, TrendingUp, AlertTriangle, CloudFog, Gauge, Monitor, Radio, Activity } from 'lucide-react';
 import { format, subDays, subHours } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -137,6 +138,21 @@ export default function UserDashboard() {
                                 recorded_at: item.latestData?.recorded_at,
                                 data_id: item.latestData?.data_id
                             }));
+
+                            // // Filter to show only specifically requested sensors
+                            // const allowedSensors = [
+                            //     'wind_speed_ms',
+                            //     'air_temp_c',
+                            //     'air_rh_pct',
+                            //     'air_pressure_hpa',
+                            //     'soil_temp_c',
+                            //     'soil_rh_pct' // Fallback
+                            // ];
+
+                            // const filteredData = flattenedData.filter((item: any) =>
+                            //     allowedSensors.includes(item.sensor_type)
+                            // );
+
                             setSensorData(flattenedData);
 
                             // Fetch history for charts (mock logic for now - ideally we fetch per sensor)
@@ -229,7 +245,7 @@ export default function UserDashboard() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="space-y-10 animate-in fade-in duration-500 pb-10">
                 {/* Header: Plot Selector & Title */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -252,80 +268,38 @@ export default function UserDashboard() {
                     </div>
                 </div>
 
-                {/* 1. Status Overview Cards */}
-                <div className="grid gap-4 md:grid-cols-3">
-                    {/* BUS Level Card */}
-                    <Card className={`border-l-4 ${isHighRisk ? 'border-l-red-500' : 'border-l-emerald-500'}`}>
-                        <CardContent className="pt-6">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Disease Risk (BUS)</p>
-                                    <h3 className={`text-2xl font-bold mt-2 ${isHighRisk ? 'text-red-600' : 'text-emerald-600'}`}>
-                                        {diseaseRisk ? diseaseRisk.bus_score.toFixed(2) : 'N/A'}
-                                    </h3>
-                                    <Badge variant={isHighRisk ? "destructive" : "secondary"} className="mt-2">
-                                        {isHighRisk ? 'High Risk' : 'Low Risk'}
-                                    </Badge>
-                                </div>
-                                <div className={`p-3 rounded-full ${isHighRisk ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                    <AlertTriangle className="h-6 w-6" />
-                                </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-4">
-                                {isHighRisk ? 'High infection probability. Apply fungicides.' : 'Conditions unfavorable for blast disease.'}
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Rainfall Card */}
-                    <Card className="border-l-4 border-l-blue-500">
-                        <CardContent className="pt-6">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Daily Rainfall</p>
-                                    <h3 className="text-2xl font-bold mt-2 text-blue-600">
-                                        {rainValue.toFixed(1)} <span className="text-base font-normal text-muted-foreground">mm</span>
-                                    </h3>
-                                    <Badge variant="outline" className="mt-2 text-blue-600 border-blue-200 bg-blue-50">
-                                        Last 24h
-                                    </Badge>
-                                </div>
-                                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                                    <CloudRain className="h-6 w-6" />
-                                </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-4">
-                                {rainValue > 10 ? 'Heavy rain recorded. Check drainage.' : 'No significant rainfall today.'}
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Plant Health Card (Mock) */}
-                    <Card className="border-l-4 border-l-green-500">
-                        <CardContent className="pt-6">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Plant Health</p>
-                                    <h3 className="text-2xl font-bold mt-2 text-green-600">Optimal</h3>
-                                    <Badge variant="outline" className="mt-2 text-green-600 border-green-200 bg-green-50">
-                                        Growth Stage
-                                    </Badge>
-                                </div>
-                                <div className="p-3 rounded-full bg-green-100 text-green-600">
-                                    <Sprout className="h-6 w-6" />
-                                </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-4">
-                                Soil moisture and temperature are ideal for growth.
-                            </p>
-                        </CardContent>
-                    </Card>
+                {/* 1. 4-Pillar Risk Analysis (Top Section) */}
+                <div className="grid gap-4 md:grid-cols-4">
+                    <RiskCard
+                        title="ภัยแล้ง"
+                        subTitle="Drought Risk"
+                        percent={riskData[0].A}
+                        type="drought"
+                    />
+                    <RiskCard
+                        title="น้ำท่วม"
+                        subTitle="Flood Risk"
+                        percent={riskData[1].A}
+                        type="flood"
+                    />
+                    <RiskCard
+                        title="พายุ"
+                        subTitle="Storm Risk"
+                        percent={riskData[2].A}
+                        type="storm"
+                    />
+                    <RiskCard
+                        title="โรค/แมลง"
+                        subTitle="Disease Risk"
+                        percent={riskData[3].A}
+                        type="disease"
+                    />
                 </div>
 
                 {/* 2. Middle Section: Map & Risk Analysis */}
-                <div className="grid gap-6 md:grid-cols-12 h-auto md:h-[500px]">
+                <div className="grid gap-6 md:grid-cols-12 items-start">
                     {/* Interactive Map (Left - Larger) */}
-                    <Card className="md:col-span-8 overflow-hidden flex flex-col">
+                    <Card className="md:col-span-8 overflow-hidden flex flex-col h-[600px]">
                         <CardHeader className="py-4 px-6 border-b bg-muted/20">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2">
@@ -338,7 +312,7 @@ export default function UserDashboard() {
                                 )}
                             </div>
                         </CardHeader>
-                        <div className="flex-1 relative z-0 min-h-[300px]">
+                        <div className="flex-1 relative z-0 min-h-0">
                             {currentPlot && (
                                 <MapContainer
                                     center={[currentPlot.lat, currentPlot.lon]}
@@ -398,41 +372,36 @@ export default function UserDashboard() {
                         </div>
                     </Card>
 
-                    {/* Risk Analysis (Right - Smaller) */}
-                    <Card className="md:col-span-4 flex flex-col">
-                        <CardHeader className="py-4 border-b">
-                            <CardTitle>4-Pillar Risk Analysis</CardTitle>
-                            <CardDescription>Current risk assessment per TOR</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex-1 flex items-center justify-center p-0">
-                            <ResponsiveContainer width="100%" height={300}>
-                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={riskData}>
-                                    <PolarGrid />
-                                    <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                    <Radar
-                                        name="Risk Level"
-                                        dataKey="A"
-                                        stroke="#0ea5e9"
-                                        fill="#0ea5e9"
-                                        fillOpacity={0.4}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                        formatter={(value: number) => [value > 50 ? 'High' : 'Low', 'Risk']}
-                                    />
-                                </RadarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                        <div className="grid grid-cols-2 gap-2 p-4 pt-0">
-                            {riskData.map(risk => (
-                                <div key={risk.subject} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded">
-                                    <span>{risk.subject}</span>
-                                    <div className={`h-2 w-2 rounded-full ${risk.A > 50 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                    {/* Sensor Status (Right - Smaller) */}
+                    <div className="md:col-span-4 flex flex-col gap-4 h-[600px]">
+                        <div className="bg-card rounded-xl border shadow-sm flex flex-col h-full overflow-hidden">
+                            <div className="p-4 border-b bg-muted/20 flex justify-between items-center">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <Monitor className="h-5 w-5 text-blue-600" />
+                                    Live Sensors
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    <span className="text-xs text-muted-foreground">Live</span>
                                 </div>
-                            ))}
+                            </div>
+
+                            <div className="p-4 overflow-y-auto grow">
+                                {sensorData.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {sensorData.map((sensor, idx) => (
+                                            <MiniSensorCard key={sensor.sensor_id || idx} data={sensor} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+                                        <Monitor className="h-10 w-10 mb-2 opacity-20" />
+                                        <p>No sensor data available</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </Card>
+                    </div>
                 </div>
 
                 {/* 3. Bottom Section: Environmental Trends */}
@@ -513,7 +482,7 @@ function WelcomeState() {
                 <h2 className="text-2xl font-bold">Welcome to Smart Farm View</h2>
                 <p className="max-w-md text-muted-foreground">Register your first farm plot to start monitoring environmental data and disease risks.</p>
                 <Button size="lg" asChild>
-                    <Link to="/map">Register Plot</Link>
+                    <Link to="/register-plot">Register Plot</Link>
                 </Button>
             </div>
         </DashboardLayout>
@@ -534,6 +503,157 @@ function PendingState({ plots }: { plots: FarmPlot[] }) {
                 </p>
             </div>
         </DashboardLayout>
+    );
+}
+
+
+
+function RiskCard({ title, subTitle, percent, type }: { title: string, subTitle: string, percent: number, type: 'drought' | 'flood' | 'storm' | 'disease' }) {
+    const getConfig = () => {
+        switch (type) {
+            case 'drought': // Orange/Yellow
+                return {
+                    icon: Thermometer,
+                    bg: 'bg-orange-50 dark:bg-orange-950/20',
+                    border: 'border-orange-100 dark:border-orange-900',
+                    text: 'text-orange-600 dark:text-orange-400',
+                    bar: 'bg-orange-500'
+                };
+            case 'flood': // Blue
+                return {
+                    icon: CloudRain,
+                    bg: 'bg-blue-50 dark:bg-blue-950/20',
+                    border: 'border-blue-100 dark:border-blue-900',
+                    text: 'text-blue-600 dark:text-blue-400',
+                    bar: 'bg-blue-500'
+                };
+            case 'storm': // Purple
+                return {
+                    icon: Wind,
+                    bg: 'bg-purple-50 dark:bg-purple-950/20',
+                    border: 'border-purple-100 dark:border-purple-900',
+                    text: 'text-purple-600 dark:text-purple-400',
+                    bar: 'bg-purple-500'
+                };
+            case 'disease': // Red/Pink
+                return {
+                    icon: AlertTriangle, // Using Alert for Bug replacement if needed, or import Bug
+                    bg: 'bg-red-50 dark:bg-red-950/20',
+                    border: 'border-red-100 dark:border-red-900',
+                    text: 'text-red-600 dark:text-red-400',
+                    bar: 'bg-red-500'
+                };
+        }
+    };
+
+    const config = getConfig();
+    const Icon = config.icon;
+
+    // Determine Status
+    let status = 'Low Risk';
+    let levelText = 'Low';
+    let statusColor = 'bg-emerald-500';
+    if (percent >= 40) {
+        status = 'Medium Risk';
+        levelText = 'Medium';
+        statusColor = 'bg-amber-500';
+    }
+    if (percent >= 70) {
+        status = 'High Risk';
+        levelText = 'High';
+        statusColor = 'bg-red-500';
+    }
+
+    return (
+        <Card className={`border ${config.border} shadow-sm hover:shadow-md transition-all`}>
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h4 className="font-bold text-base">{title}</h4>
+                        <p className="text-xs text-muted-foreground">{subTitle}</p>
+                    </div>
+                    <div className={`p-2 rounded-full ${config.bg} ${config.text}`}>
+                        <Icon className="h-5 w-5" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-end gap-1">
+                        <span className={`text-3xl font-bold ${config.text.split(' ')[0]}`}>{levelText}</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                            className={`h-full rounded-full ${config.bar} transition-all duration-500`}
+                            style={{ width: `${percent}%` }}
+                        ></div>
+                    </div>
+
+                    <Badge className={`w-full justify-center ${statusColor} text-white hover:bg-opacity-90 border-0`}>
+                        {status}
+                    </Badge>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function MiniSensorCard({ data }: { data: any }) {
+    const navigate = useNavigate();
+
+    const getIcon = (type: string) => {
+        const lower = (type || '').toLowerCase();
+        if (lower.includes('temp')) return Thermometer;
+        if (lower.includes('humid')) return Droplets;
+        if (lower.includes('rain')) return CloudRain;
+        if (lower.includes('wind')) return Wind;
+        if (lower.includes('press')) return Gauge;
+        if (lower.includes('soil')) return Radio;
+        return Activity;
+    };
+
+    const getColor = (type: string) => {
+        const lower = (type || '').toLowerCase();
+        if (lower.includes('temp')) return { text: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200', hover: 'hover:border-orange-400' };
+        if (lower.includes('humid')) return { text: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', hover: 'hover:border-blue-400' };
+        if (lower.includes('rain')) return { text: 'text-cyan-500', bg: 'bg-cyan-50', border: 'border-cyan-200', hover: 'hover:border-cyan-400' };
+        if (lower.includes('wind')) return { text: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', hover: 'hover:border-slate-400' };
+        if (lower.includes('soil')) return { text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', hover: 'hover:border-emerald-400' };
+        return { text: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', hover: 'hover:border-emerald-400' };
+    };
+
+    const Icon = getIcon(data.sensor_type);
+    const colors = getColor(data.sensor_type);
+
+    return (
+        <div
+            onClick={() => navigate(`/sensors/${data.sensor_id}`)}
+            className={`
+                relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer
+                bg-white dark:bg-card shadow-sm hover:shadow-md
+                flex flex-col justify-between gap-3 overflow-hidden group
+                ${colors.border} ${colors.hover}
+            `}
+        >
+            <div className="flex justify-between items-start w-full">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground truncate max-w-[100px]">
+                    {(data.sensor_type || 'Sensor').replace(/_/g, ' ')}
+                </span>
+                <Icon className={`h-5 w-5 ${colors.text}`} />
+            </div>
+
+            <div className="mt-1 flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold tracking-tight text-foreground">
+                    {typeof data.value === 'number' ? data.value.toFixed(1) : (data.value || '--')}
+                </span>
+                {data.unit && (
+                    <span className="text-xs font-medium text-muted-foreground/70">
+                        {data.unit}
+                    </span>
+                )}
+            </div>
+        </div>
     );
 }
 

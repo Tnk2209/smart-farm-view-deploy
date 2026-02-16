@@ -24,6 +24,7 @@ import RegisterPlot from "./pages/RegisterPlot";
 import ApprovePlots from "./pages/ApprovePlots";
 import DiseaseRisk from "./pages/DiseaseRisk";
 import NotFound from "./pages/NotFound";
+import RiskDashboard from "./pages/RiskDashboard";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +38,7 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
 
               {/* Protected Routes */}
@@ -54,10 +55,10 @@ const App = () => (
                 <ProtectedRoute><StationDetail /></ProtectedRoute>
               } />
               <Route path="/sensors" element={
-                <ProtectedRoute requiredPermission="view_sensor_data"><SensorsList /></ProtectedRoute>
+                <ProtectedRoute requiredPermission="view_sensor_data" allowedRoles={['MANAGER', 'SUPER_USER']}><SensorsList /></ProtectedRoute>
               } />
               <Route path="/sensors/:id" element={
-                <ProtectedRoute requiredPermission="view_sensor_data"><SensorDetail /></ProtectedRoute>
+                <ProtectedRoute requiredPermission="view_sensor_data" allowedRoles={['MANAGER', 'SUPER_USER']}><SensorDetail /></ProtectedRoute>
               } />
               <Route path="/alerts" element={
                 <ProtectedRoute><Alerts /></ProtectedRoute>
@@ -73,7 +74,12 @@ const App = () => (
 
               {/* Disease Risk Route (UC12) */}
               <Route path="/disease-risk" element={
-                <ProtectedRoute><DiseaseRisk /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['MANAGER', 'SUPER_USER']}><DiseaseRisk /></ProtectedRoute>
+              } />
+
+              {/* 4 Pillars Risk Dashboard */}
+              <Route path="/risk-dashboard" element={
+                <ProtectedRoute allowedRoles={['MANAGER', 'SUPER_USER']}><RiskDashboard /></ProtectedRoute>
               } />
 
               {/* Admin Routes */}
