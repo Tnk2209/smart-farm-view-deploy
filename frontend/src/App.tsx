@@ -62,20 +62,20 @@ const App = () => (
               <Route path="/alerts" element={
                 <ProtectedRoute><Alerts /></ProtectedRoute>
               } />
-              
+
               {/* Farm Plot Routes (UC10, UC11) */}
               <Route path="/register-plot" element={
-                <ProtectedRoute><RegisterPlot /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['USER']}><RegisterPlot /></ProtectedRoute>
               } />
               <Route path="/admin/approve-plots" element={
                 <ProtectedRoute requiredPermission="manage_user"><ApprovePlots /></ProtectedRoute>
               } />
-              
+
               {/* Disease Risk Route (UC12) */}
               <Route path="/disease-risk" element={
                 <ProtectedRoute><DiseaseRisk /></ProtectedRoute>
               } />
-              
+
               {/* Admin Routes */}
               <Route path="/admin/users" element={
                 <ProtectedRoute requiredPermission="manage_user"><AdminUsers /></ProtectedRoute>

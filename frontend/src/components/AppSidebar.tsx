@@ -3,14 +3,14 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth, getRoleDisplayName } from '@/contexts/AuthContext';
 import { useThemeToggle } from '@/contexts/ThemeContext';
 import { UserRole } from '@/lib/types';
-import { 
-  Sidebar, 
-  SidebarContent, 
-  SidebarGroup, 
-  SidebarGroupContent, 
-  SidebarGroupLabel, 
-  SidebarMenu, 
-  SidebarMenuButton, 
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
@@ -19,14 +19,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  LayoutDashboard, 
-  MapPin, 
-  Radio, 
-  Thermometer, 
-  AlertTriangle, 
-  Settings, 
-  Users, 
+import {
+  LayoutDashboard,
+  MapPin,
+  Radio,
+  Thermometer,
+  AlertTriangle,
+  Settings,
+  Users,
   LogOut,
   Sun,
   Moon,
@@ -45,7 +45,7 @@ const menuItems = [
   { title: 'Sensors', url: '/sensors', icon: Thermometer, permission: 'view_sensor_data' },
   { title: 'Alerts', url: '/alerts', icon: AlertTriangle, permission: 'view_dashboard' },
   { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard' },
-  { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard' },
+  { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard', allowedRoles: ['USER'] },
 ];
 
 const adminItems = [
@@ -70,11 +70,14 @@ export function AppSidebar() {
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
-  const visibleMenuItems = menuItems.filter(item => 
-    hasPermission(item.permission as any)
-  );
+  const visibleMenuItems = menuItems.filter(item => {
+    if (!hasPermission(item.permission as any)) return false;
+    // @ts-ignore
+    if (item.allowedRoles && user && !item.allowedRoles.includes(user.role)) return false;
+    return true;
+  });
 
-  const visibleAdminItems = adminItems.filter(item => 
+  const visibleAdminItems = adminItems.filter(item =>
     hasPermission(item.permission as any)
   );
 
@@ -101,8 +104,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={isActive(item.url)}
                     tooltip={item.title}
                   >
@@ -124,8 +127,8 @@ export function AppSidebar() {
               <SidebarMenu>
                 {visibleAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       isActive={isActive(item.url)}
                       tooltip={item.title}
                     >
@@ -156,21 +159,21 @@ export function AppSidebar() {
             </div>
           </div>
         )}
-        
+
         <div className={cn("flex gap-2", collapsed ? "flex-col" : "")}>
           {mounted && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleTheme}
               className="h-8 w-8"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           )}
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleLogout}
             className="h-8 w-8 text-destructive hover:text-destructive"
           >
