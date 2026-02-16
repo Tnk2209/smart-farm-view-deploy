@@ -178,3 +178,33 @@ export interface RiskDashboardSummary {
 }
 
 export type PillarType = 'drought' | 'flood' | 'storm' | 'disease';
+
+// Lock Control Types (UC13: Digital Lock Control) (New Update:2)
+export type LockAction = 'lock' | 'unlock';
+export type LockStatus = 'locked' | 'unlocked';
+
+export interface LockCommandRequest {
+  action: LockAction;
+}
+
+export interface LockCommandResponse {
+  station_id: number;
+  station_name: string;
+  action: LockAction;
+  topic: string;
+  timestamp: string;
+  user: string;
+}
+
+export interface LockStatusData {
+  has_lock: boolean;
+  station_name?: string;
+  status?: LockStatus;
+  gate_value?: number;
+  last_update?: string;
+  last_command?: {
+    alert_message: string;
+    created_at: string;
+  } | null;
+  message?: string;
+}

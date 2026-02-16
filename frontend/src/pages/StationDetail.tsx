@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getStationById, getStationLatestData, getAlerts } from '@/lib/api';
-import { Station, Sensor, Alert } from '@/lib/types';
+import { getStationById, getStationLatestData, getAlerts, getLockStatus, sendLockCommand } from '@/lib/api';
+import { Station, Sensor, Alert, LockStatusData } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
 import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
@@ -13,18 +13,36 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { 
   Radio, MapPin, Thermometer, AlertTriangle, ArrowLeft, 
-  Calendar, ExternalLink, Edit
+  Calendar, ExternalLink, Edit, Lock, Unlock, Shield, Clock
 } from 'lucide-react';
-import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function StationDetail() {
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
   const [station, setStation] = useState<Station | null>(null);
   const [latestData, setLatestData] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
+
+  // Lock Control State
+  const [lockStatus, setLockStatus] = useState<LockStatusData | null>(null);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'lock' | 'unlock' | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -32,10 +50,11 @@ export default function StationDetail() {
 
       try {
         const stationId = parseInt(id);
-        const [stationRes, latestDataRes, alertsRes] = await Promise.all([
+        const [stationRes, latestDataRes, alertsRes, lockStatusRes] = await Promise.all([
           getStationById(stationId),
           getStationLatestData(stationId),
           getAlerts(),
+          getLockStatus(stationId),
         ]);
 
         if (stationRes.success && stationRes.data) setStation(stationRes.data);
@@ -44,6 +63,9 @@ export default function StationDetail() {
           // Filter alerts for this station only
           const stationAlerts = alertsRes.data.filter(a => a.station_id === stationId);
           setAlerts(stationAlerts.slice(0, 5));
+        }
+        if (lockStatusRes.success && lockStatusRes.data) {
+          setLockStatus(lockStatusRes.data);
         }
       } catch (error) {
         console.error('Failed to fetch station data:', error);
@@ -54,6 +76,53 @@ export default function StationDetail() {
 
     fetchData();
   }, [id]);
+
+  const handleLockAction = (action: 'lock' | 'unlock') => {
+    setPendingAction(action);
+    setShowConfirmDialog(true);
+  };
+
+  const confirmLockAction = async () => {
+    if (!pendingAction || !id) return;
+
+    setLockLoading(true);
+    setShowConfirmDialog(false);
+
+    try {
+      const stationId = parseInt(id);
+      const response = await sendLockCommand(stationId, pendingAction);
+
+      if (response.success) {
+        toast({
+          title: 'Success!',
+          description: `${pendingAction === 'lock' ? 'Lock' : 'Unlock'} command sent successfully`,
+        });
+
+        // Refresh lock status after short delay (simulate device response)
+        setTimeout(async () => {
+          const lockStatusRes = await getLockStatus(stationId);
+          if (lockStatusRes.success && lockStatusRes.data) {
+            setLockStatus(lockStatusRes.data);
+          }
+        }, 1000);
+      } else {
+        toast({
+          title: 'Error',
+          description: response.error || 'Failed to send command',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send lock command',
+        variant: 'destructive',
+      });
+    } finally {
+      setLockLoading(false);
+      setPendingAction(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -167,7 +236,7 @@ export default function StationDetail() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Thermometer className="h-5 w-5" />
-                Sensors ({latestData.length})
+                Sensors ({latestData.filter(item => item.sensor.sensor_type !== 'gate_door').length})
               </CardTitle>
               <CardDescription>
                 Monitoring devices installed at this station
@@ -182,6 +251,12 @@ export default function StationDetail() {
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                   {latestData.map((item, index) => {
                     const { sensor, latestData: data } = item;
+                    
+                    // Hide gate_door sensor - it's shown in Lock Control Card
+                    if (sensor.sensor_type === 'gate_door') {
+                      return null;
+                    }
+                    
                     return (
                       <Link 
                         key={`${sensor.sensor_id}-${index}`}
@@ -203,9 +278,7 @@ export default function StationDetail() {
                                 </p>
                                 {data?.value !== undefined && data?.value !== null && (
                                   <p className="text-lg font-bold text-primary">
-                                    {sensor.sensor_type === 'gate_door' 
-                                      ? (Number(data.value) === 1 ? 'เปิด' : 'ปิด') 
-                                      : Number(data.value).toFixed(2)} {sensorTypeUnits[sensor.sensor_type]}
+                                    {Number(data.value).toFixed(2)} {sensorTypeUnits[sensor.sensor_type]}
                                   </p>
                                 )}
                               </div>
@@ -220,6 +293,148 @@ export default function StationDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Lock Control Card (UC13) - Only for SUPER_USER with gate_door sensor */}
+        {lockStatus?.has_lock && user?.role === 'SUPER_USER' ? (
+          <Card className="border-2 border-primary/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    Digital Lock Control
+                  </CardTitle>
+                  <CardDescription>
+                    Remote lock control system (UC13)
+                  </CardDescription>
+                </div>
+                {lockStatus.status && (
+                  <Badge 
+                    variant={lockStatus.status === 'unlocked' ? 'default' : 'secondary'}
+                    className="text-base px-4 py-1"
+                  >
+                    {lockStatus.status === 'unlocked' ? (
+                      <>
+                        <Unlock className="h-4 w-4 mr-1" />
+                        UNLOCKED
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-1" />
+                        LOCKED
+                      </>
+                    )}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Current Status */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Lock className="h-4 w-4" />
+                    <span>Current Status</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-3 w-3 rounded-full ${
+                        lockStatus.status === 'unlocked' ? 'bg-green-500' : 'bg-gray-500'
+                      } animate-pulse`}
+                    />
+                    <span className="font-semibold">
+                      {lockStatus.status === 'unlocked' ? 'Gate Open' : 'Gate Closed'}
+                    </span>
+                  </div>
+                  {lockStatus.last_update && (
+                    <p className="text-xs text-muted-foreground">
+                      Last update: {formatDistanceToNow(new Date(lockStatus.last_update), { addSuffix: true })}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Last Command</span>
+                  </div>
+                  {lockStatus.last_command ? (
+                    <>
+                      <p className="text-sm font-medium">
+                        {lockStatus.last_command.alert_message}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(lockStatus.last_command.created_at), 'MMM d, yyyy HH:mm')}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No commands sent yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Control Buttons */}
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground mb-3">
+                  ⚠️ Use these controls to remotely lock or unlock the station gate
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => handleLockAction('unlock')}
+                    disabled={lockLoading || lockStatus.status === 'unlocked'}
+                  >
+                    <Unlock className="mr-2 h-5 w-5" />
+                    Unlock Gate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => handleLockAction('lock')}
+                    disabled={lockLoading || lockStatus.status === 'locked'}
+                  >
+                    <Lock className="mr-2 h-5 w-5" />
+                    Lock Gate
+                  </Button>
+                </div>
+              </div>
+
+              {/* Technical Info */}
+              <div className="pt-4 border-t">
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    Technical Details
+                  </summary>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground bg-muted p-3 rounded">
+                    <p><strong>MQTT Topic:</strong> cmd/{station?.device_id}/lock</p>
+                    <p><strong>Sensor:</strong> gate_door (0=locked, 1=unlocked)</p>
+                    <p><strong>Gate Value:</strong> {lockStatus.gate_value}</p>
+                  </div>
+                </details>
+              </div>
+            </CardContent>
+          </Card>
+        ) : lockStatus?.has_lock && user?.role !== 'SUPER_USER' ? (
+          <Card className="border-2 border-muted">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                <Shield className="h-5 w-5" />
+                Digital Lock Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                🔒 Access denied. Only <strong>Super User</strong> can control locks.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Current user role: <strong>{user?.role || 'Unknown'}</strong>
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* Weather Forecast */}
         <WeatherForecast />
@@ -274,6 +489,59 @@ export default function StationDetail() {
             )}
           </CardContent>
         </Card>
+
+        {/* Lock Control Confirmation Dialog */}
+        <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                {pendingAction === 'lock' ? (
+                  <>
+                    <Lock className="h-5 w-5 text-destructive" />
+                    Confirm Lock Command
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="h-5 w-5 text-green-600" />
+                    Confirm Unlock Command
+                  </>
+                )}
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Are you sure you want to <strong className="text-foreground">{pendingAction?.toUpperCase()}</strong> this station?
+                </p>
+                <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
+                  <p><strong>Station:</strong> {station?.station_name}</p>
+                  <p><strong>Device ID:</strong> {station?.device_id}</p>
+                  <p><strong>Action:</strong> Send {pendingAction} command via MQTT</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This action will be logged and can be viewed in the audit trail.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmLockAction}
+                className={pendingAction === 'lock' ? 'bg-destructive hover:bg-destructive/90' : ''}
+              >
+                {pendingAction === 'lock' ? (
+                  <>
+                    <Lock className="mr-2 h-4 w-4" />
+                    Confirm Lock
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="mr-2 h-4 w-4" />
+                    Confirm Unlock
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

@@ -15,6 +15,7 @@ import thresholdsRouter from './routes/thresholds.js';
 import plotsRouter from './routes/plots.js';
 import diseaseRiskRouter from './routes/diseaseRisk.js';
 import riskRouter from './routes/risk.js';
+import lockControlRouter from './routes/lockControl.js';
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use(`${config.apiPrefix}/thresholds`, thresholdsRouter);
 app.use(`${config.apiPrefix}/plots`, plotsRouter);
 app.use(`${config.apiPrefix}/disease-risk`, diseaseRiskRouter);
 app.use(`${config.apiPrefix}/risk`, riskRouter);
+app.use(`${config.apiPrefix}/stations`, lockControlRouter);
 
 // 404 handler
 app.use((req, res) => {
