@@ -22,10 +22,14 @@ const routeNames: Record<string, string> = {
   stations: 'Stations',
   sensors: 'Sensors',
   alerts: 'Alerts',
+  'risk-dashboard': '4 Pillars Risk Dashboard',
+  'disease-risk': 'Disease Risk Analysis',
+  'register-plot': 'Register Farm Plot',
   admin: 'Administration',
   users: 'Users',
   thresholds: 'Thresholds',
   settings: 'Settings',
+  'approve-plots': 'Approve Farm Plots',
 };
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {

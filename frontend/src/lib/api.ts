@@ -4,7 +4,8 @@
 import { 
   User, Station, Sensor, SensorData, Alert, Threshold, 
   DashboardSummary, ApiResponse, UserRole, Role, FarmPlot,
-  StationDiseaseRisk, PlotDiseaseRisk, AllStationsDiseaseRisk
+  StationDiseaseRisk, PlotDiseaseRisk, AllStationsDiseaseRisk,
+  RiskDashboardSummary, PillarSummary
 } from './types';
 import { apiFetch, apiConfig } from './apiConfig';
 
@@ -715,6 +716,98 @@ export const getAllStationsDiseaseRisk = async (
   try {
     return await apiFetch<ApiResponse<AllStationsDiseaseRisk>>(
       `/disease-risk/all-stations?days=${days}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch disease risk summary',
+    };
+  }
+};
+
+// ============ 4 PILLARS RISK DASHBOARD API ============
+
+/**
+ * GET /api/risk/summary
+ * Get 4 Pillars Risk Dashboard summary
+ * Access: All authenticated users
+ */
+export const getRiskDashboardSummary = async (
+  days: number = 10
+): Promise<ApiResponse<RiskDashboardSummary>> => {
+  try {
+    return await apiFetch<ApiResponse<RiskDashboardSummary>>(
+      `/risk/summary?days=${days}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch risk dashboard summary',
+    };
+  }
+};
+
+/**
+ * GET /api/risk/drought
+ * Get detailed Drought risk analysis
+ */
+export const getDroughtRisk = async (): Promise<ApiResponse<PillarSummary & { pillar: string; title: string }>> => {
+  try {
+    return await apiFetch<ApiResponse<PillarSummary & { pillar: string; title: string }>>(
+      '/risk/drought'
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch drought risk',
+    };
+  }
+};
+
+/**
+ * GET /api/risk/flood
+ * Get detailed Flood risk analysis
+ */
+export const getFloodRisk = async (): Promise<ApiResponse<PillarSummary & { pillar: string; title: string }>> => {
+  try {
+    return await apiFetch<ApiResponse<PillarSummary & { pillar: string; title: string }>>(
+      '/risk/flood'
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch flood risk',
+    };
+  }
+};
+
+/**
+ * GET /api/risk/storm
+ * Get detailed Storm risk analysis
+ */
+export const getStormRisk = async (): Promise<ApiResponse<PillarSummary & { pillar: string; title: string }>> => {
+  try {
+    return await apiFetch<ApiResponse<PillarSummary & { pillar: string; title: string }>>(
+      '/risk/storm'
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch storm risk',
+    };
+  }
+};
+
+/**
+ * GET /api/risk/disease
+ * Get detailed Disease risk analysis (BUS Algorithm)
+ */
+export const getDiseaseRiskSummary = async (
+  days: number = 10
+): Promise<ApiResponse<PillarSummary & { pillar: string; title: string }>> => {
+  try {
+    return await apiFetch<ApiResponse<PillarSummary & { pillar: string; title: string }>>(
+      `/risk/disease?days=${days}`
     );
   } catch (error) {
     return {

@@ -148,3 +148,33 @@ export interface DashboardSummary {
   warning_stations: number;
   critical_stations: number;
 }
+
+// 4 Pillars Risk Dashboard Types (New Update:2)
+export interface StationRisk {
+  station_id: number;
+  station_name: string;
+  province: string;
+  risk_level: RiskLevel;
+  risk_score: number;
+  details?: any;
+}
+
+export interface PillarSummary {
+  risk_level: RiskLevel;
+  affected_stations: number;
+  high_risk_count: number;
+  medium_risk_count: number;
+  low_risk_count: number;
+  stations: StationRisk[];
+}
+
+export interface RiskDashboardSummary {
+  drought: PillarSummary;
+  flood: PillarSummary;
+  storm: PillarSummary;
+  disease: PillarSummary;
+  total_stations: number;
+  last_updated: string;
+}
+
+export type PillarType = 'drought' | 'flood' | 'storm' | 'disease';

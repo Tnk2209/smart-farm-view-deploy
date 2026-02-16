@@ -35,6 +35,7 @@ import {
   MapPinned,
   CheckSquare,
   Activity,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,7 @@ const menuItems = [
   { title: 'Stations', url: '/stations', icon: Radio, permission: 'view_dashboard' },
   { title: 'Sensors', url: '/sensors', icon: Thermometer, permission: 'view_sensor_data' },
   { title: 'Alerts', url: '/alerts', icon: AlertTriangle, permission: 'view_dashboard' },
+  { title: '4 Pillars Risk', url: '/risk-dashboard', icon: TrendingUp, permission: 'view_dashboard' },
   { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard' },
   { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard', allowedRoles: ['USER'] },
 ];
