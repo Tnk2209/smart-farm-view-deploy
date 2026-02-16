@@ -23,6 +23,7 @@ import AdminSettings from "./pages/AdminSettings";
 import RegisterPlot from "./pages/RegisterPlot";
 import ApprovePlots from "./pages/ApprovePlots";
 import DiseaseRisk from "./pages/DiseaseRisk";
+import RiskDashboard from "./pages/RiskDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +75,11 @@ const App = () => (
               {/* Disease Risk Route (UC12) */}
               <Route path="/disease-risk" element={
                 <ProtectedRoute><DiseaseRisk /></ProtectedRoute>
+              } />
+              
+              {/* 4 Pillars Risk Dashboard */}
+              <Route path="/risk-dashboard" element={
+                <ProtectedRoute><RiskDashboard /></ProtectedRoute>
               } />
               
               {/* Admin Routes */}

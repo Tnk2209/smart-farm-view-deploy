@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllStationsDiseaseRisk } from '../lib/api';
 import type { AllStationsDiseaseRisk, RiskLevel } from '../lib/types';
@@ -91,7 +92,8 @@ export default function DiseaseRisk() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -342,6 +344,7 @@ export default function DiseaseRisk() {
           </Card>
         </>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
