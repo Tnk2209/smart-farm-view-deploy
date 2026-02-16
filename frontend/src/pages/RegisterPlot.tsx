@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { registerFarmPlot, getMyFarmPlots } from '@/lib/api';
 import { FarmPlot } from '@/lib/types';
@@ -9,21 +9,58 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { MapPin, CheckCircle, Clock, XCircle, Leaf } from 'lucide-react';
-import { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import proj4 from 'proj4';
+
+// Fix Leaflet marker icon issue by using CDN links to avoid bundler asset issues
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Define UTM zones for Thailand
+// Zone 47N: 96E to 102E
+// Zone 48N: 102E to 108E
+const UTM_ZONE_47N = '+proj=utm +zone=47 +datum=WGS84 +units=m +no_defs';
+const UTM_ZONE_48N = '+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs';
+
+// Helper: Calculate UTM Latitude Band
+const getUtmBand = (lat: number) => {
+  const bands = "CDEFGHJKLMNPQRSTUVWXX";
+  const index = Math.floor((lat + 80) / 8);
+  return (index >= 0 && index < bands.length) ? bands[index] : 'N';
+};
+
+// Component to handle map clicks
+function LocationMarker({ position, setPosition }: { position: { lat: number, lng: number } | null, setPosition: (pos: { lat: number, lng: number }) => void }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, map.getZoom());
+    },
+  });
+
+  return position === null ? null : (
+    <Marker position={position} />
+  );
+}
 
 /**
  * UC10: Register Farm Plot
- * ตามเอกสาร: 04-use-case-diagram.md#UC10
- * Access: USER (Farmer)
- * 
- * Farmer สามารถลงทะเบียนแปลงนาด้วยการกรอกพิกัด Lat/Lon
- * ระบบจะคำนวณหา Nearest Station และรอการอนุมัติจาก Super User
+ * Farmer can register a plot by picking a location on the map.
+ * The system automatically fills Lat/Lon and calculates UTM coordinates.
  */
 export default function RegisterPlot() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [myPlots, setMyPlots] = useState<FarmPlot[]>([]);
   const [loadingPlots, setLoadingPlots] = useState(true);
+  const [mapPosition, setMapPosition] = useState<{ lat: number, lng: number } | null>(null);
 
   const [formData, setFormData] = useState({
     lat: '',
@@ -36,6 +73,18 @@ export default function RegisterPlot() {
   useEffect(() => {
     fetchMyPlots();
   }, []);
+
+  // Update map position if user manually types valid coordinates
+  useEffect(() => {
+    const lat = parseFloat(formData.lat);
+    const lon = parseFloat(formData.lon);
+    if (!isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+      // Only update if significantly different to avoid loops/jumping
+      if (!mapPosition || Math.abs(mapPosition.lat - lat) > 0.0001 || Math.abs(mapPosition.lng - lon) > 0.0001) {
+        setMapPosition({ lat, lng: lon });
+      }
+    }
+  }, [formData.lat, formData.lon]);
 
   const fetchMyPlots = async () => {
     try {
@@ -50,13 +99,44 @@ export default function RegisterPlot() {
     }
   };
 
+  const handleMapSelect = (pos: { lat: number, lng: number }) => {
+    setMapPosition(pos);
+
+    // Logic to select correct UTM Zone for Thailand
+    let zoneNum = 47;
+    let projDef = UTM_ZONE_47N;
+
+    if (pos.lng >= 102) {
+      zoneNum = 48;
+      projDef = UTM_ZONE_48N;
+    }
+
+    let utmString = '';
+    try {
+      // proj4 forward transform: [lon, lat] -> [easting, northing]
+      const utm = proj4('EPSG:4326', projDef, [pos.lng, pos.lat]);
+      const band = getUtmBand(pos.lat);
+      // Format example: 47P 688687 1520947
+      utmString = `${zoneNum}${band} ${Math.round(utm[0])} ${Math.round(utm[1])}`;
+    } catch (e) {
+      console.error("UTM conversion failed", e);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      lat: pos.lat.toFixed(6),
+      lon: pos.lng.toFixed(6),
+      utm_coords: utmString
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.lat || !formData.lon) {
       toast({
         title: 'Validation Error',
-        description: 'กรุณากรอกพิกัด Latitude และ Longitude',
+        description: 'กรุณาเลือกพิกัดบนแผนที่ หรือกรอก Latitude/Longitude',
         variant: 'destructive',
       });
       return;
@@ -108,6 +188,7 @@ export default function RegisterPlot() {
           land_title_deed: '',
           area_size_rai: '',
         });
+        setMapPosition(null);
 
         // Refresh plots
         fetchMyPlots();
@@ -165,20 +246,39 @@ export default function RegisterPlot() {
             ลงทะเบียนแปลงนา
           </h1>
           <p className="text-muted-foreground">
-            กรอกข้อมูลพิกัดแปลงนาของคุณ เพื่อรับความช่วยเหลือและคำแนะนำจากระบบ
+            ระบุตำแหน่งแปลงนาของคุณบนแผนที่เพื่อลงทะเบียน
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Registration Form */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Registration Form & Map */}
           <Card>
             <CardHeader>
-              <CardTitle>ลงทะเบียนแปลงใหม่</CardTitle>
+              <CardTitle>ระบุตำแหน่งแปลง</CardTitle>
               <CardDescription>
-                กรุณากรอกพิกัดแปลงนาของคุณ (Latitude, Longitude)
+                จิ้มบนแผนที่เพื่อระบุตำแหน่ง หรือกรอกพิกัด
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Map Section */}
+              <div className="mb-6 border rounded-md overflow-hidden relative z-0">
+                <MapContainer
+                  center={[13.7563, 100.5018]}
+                  zoom={6}
+                  className="h-[300px] w-full"
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <LocationMarker position={mapPosition} setPosition={handleMapSelect} />
+                </MapContainer>
+                <div className="bg-muted text-xs p-1 text-center text-muted-foreground border-t">
+                  คลิกที่แผนที่เพื่อปักหมุดตำแหน่ง
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -208,13 +308,18 @@ export default function RegisterPlot() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="utm_coords">พิกัด UTM (Optional)</Label>
+                  <Label htmlFor="utm_coords">พิกัด UTM (คำนวณอัตโนมัติ)</Label>
                   <Input
                     id="utm_coords"
                     placeholder="เช่น 47P 688687 1520947"
                     value={formData.utm_coords}
                     onChange={(e) => setFormData({ ...formData, utm_coords: e.target.value })}
+                    readOnly
+                    className="bg-muted/50 font-mono text-sm"
                   />
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    * ระบบคำนวณจาก Lat/Lon ตามโซนประเทศไทย (47N/48N)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -265,7 +370,7 @@ export default function RegisterPlot() {
                   <p>ยังไม่มีแปลงนาที่ลงทะเบียน</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                   {myPlots.map((plot) => (
                     <div
                       key={plot.plot_id}
@@ -280,13 +385,16 @@ export default function RegisterPlot() {
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div>พิกัด: {plot.lat.toFixed(4)}, {plot.lon.toFixed(4)}</div>
+                        {plot.utm_coords && (
+                          <div className="text-xs font-mono bg-muted inline-block px-1 rounded">UTM: {plot.utm_coords}</div>
+                        )}
                         {plot.area_size_rai && (
-                          <div>ขนาด: {plot.area_size_rai} ไร่</div>
+                          <div className="mt-1">ขนาด: {plot.area_size_rai} ไร่</div>
                         )}
                         {plot.land_title_deed && (
                           <div>โฉนด: {plot.land_title_deed}</div>
                         )}
-                        <div className="text-xs">
+                        <div className="text-xs pt-2 border-t mt-2">
                           ลงทะเบียนเมื่อ: {new Date(plot.created_at).toLocaleDateString('th-TH')}
                         </div>
                       </div>

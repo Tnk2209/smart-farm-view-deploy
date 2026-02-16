@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { getAllFarmPlots, approveFarmPlot, getStations } from '@/lib/api';
 import { FarmPlot, Station } from '@/lib/types';
-import{ Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -29,14 +29,31 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, MapPin, User } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, MapPin, User, Ruler } from 'lucide-react';
+
+/**
+ * Helper: Calculate Haversine Distance in KM
+ */
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI / 180);
+}
 
 /**
  * UC11: Approve Registration
- * ตามเอกสาร: 04-use-case-diagram.md#UC11
  * Access: SUPER_USER only
- * 
- * Super User สามารถตรวจสอบและอนุมัติการลงทะเบียนแปลงนาของเกษตรกร
  */
 export default function ApprovePlots() {
   const { toast } = useToast();
@@ -96,7 +113,6 @@ export default function ApprovePlots() {
           description: `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}แปลงนาเรียบร้อยแล้ว`,
         });
 
-        // Refresh plots
         fetchData();
         setSelectedPlot(null);
         setSelectedStation(undefined);
@@ -150,6 +166,32 @@ export default function ApprovePlots() {
   });
 
   const pendingCount = plots.filter((p) => p.status === 'pending').length;
+
+  // Calculate distances and sort stations when a plot is selected
+  const sortedStations = useMemo(() => {
+    if (!selectedPlot) return [];
+
+    return stations.map(station => {
+      const distance = getDistanceFromLatLonInKm(
+        selectedPlot.lat,
+        selectedPlot.lon,
+        station.latitude,
+        station.longitude
+      );
+      return { ...station, distance };
+    })
+      .filter(station => station.distance <= 10) // Filter for 10km radius (UC requirement)
+      .sort((a, b) => a.distance - b.distance);
+  }, [stations, selectedPlot]);
+
+  // Pre-select the nearest station if not already selected
+  useEffect(() => {
+    if (selectedPlot && sortedStations.length > 0 && !selectedStation) {
+      // Automatically select the nearest station initially
+      setSelectedStation(sortedStations[0].station_id);
+    }
+  }, [selectedPlot, sortedStations]);
+
 
   return (
     <DashboardLayout>
@@ -254,79 +296,97 @@ export default function ApprovePlots() {
                 กรุณาเลือกสถานีที่ใกล้ที่สุดและพิจารณาอนุมัติ
               </DialogDescription>
             </DialogHeader>
+            <div className="space-y-4 py-2">
+              {selectedPlot && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm bg-muted/30 p-4 rounded-lg border">
+                  <div className="text-muted-foreground">User ID:</div>
+                  <div className="font-medium">{selectedPlot.user_id}</div>
 
-            {selectedPlot && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-muted-foreground">User ID:</div>
-                    <div className="font-medium">{selectedPlot.user_id}</div>
+                  <div className="text-muted-foreground">Latitude:</div>
+                  <div className="font-mono">{selectedPlot.lat}</div>
 
-                    <div className="text-muted-foreground">Latitude:</div>
-                    <div className="font-mono">{selectedPlot.lat}</div>
+                  <div className="text-muted-foreground">Longitude:</div>
+                  <div className="font-mono">{selectedPlot.lon}</div>
 
-                    <div className="text-muted-foreground">Longitude:</div>
-                    <div className="font-mono">{selectedPlot.lon}</div>
+                  {selectedPlot.utm_coords && (
+                    <>
+                      <div className="text-muted-foreground">UTM:</div>
+                      <div className="font-mono">{selectedPlot.utm_coords}</div>
+                    </>
+                  )}
 
-                    {selectedPlot.utm_coords && (
-                      <>
-                        <div className="text-muted-foreground">UTM:</div>
-                        <div className="font-mono">{selectedPlot.utm_coords}</div>
-                      </>
-                    )}
+                  <div className="text-muted-foreground">โฉนด:</div>
+                  <div>{selectedPlot.land_title_deed || '-'}</div>
 
-                    {selectedPlot.land_title_deed && (
-                      <>
-                        <div className="text-muted-foreground">โฉนด:</div>
-                        <div>{selectedPlot.land_title_deed}</div>
-                      </>
-                    )}
+                  <div className="text-muted-foreground">ขนาด:</div>
+                  <div>{selectedPlot.area_size_rai ? `${selectedPlot.area_size_rai} ไร่` : '-'}</div>
+                </div>
+              )}
 
-                    {selectedPlot.area_size_rai && (
-                      <>
-                        <div className="text-muted-foreground">ขนาด:</div>
-                        <div>{selectedPlot.area_size_rai} ไร่</div>
-                      </>
-                    )}
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    เลือกสถานีที่ใกล้ที่สุด
+                  </label>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">เลือกสถานีที่ใกล้ที่สุด</label>
-                  <Select
-                    value={selectedStation?.toString()}
-                    onValueChange={(value) => setSelectedStation(parseInt(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="เลือกสถานี" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stations.map((station) => (
-                        <SelectItem key={station.station_id} value={station.station_id.toString()}>
-                          {station.station_name} - {station.province}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select
+                  value={selectedStation?.toString()}
+                  onValueChange={(value) => setSelectedStation(parseInt(value))}
+                >
+                  <SelectTrigger className="h-auto py-2">
+                    <SelectValue placeholder="เลือกสถานี" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {sortedStations.length > 0 ? (
+                      sortedStations.map((station) => {
+                        return (
+                          <SelectItem key={station.station_id} value={station.station_id.toString()}>
+                            <div className="flex flex-col items-start gap-1 py-1">
+                              <span className="font-medium flex items-center gap-2">
+                                {station.station_name}
+                                <Badge variant="secondary" className="text-[10px] h-5 px-1 bg-green-100 text-green-700">แนะนำ</Badge>
+                              </span>
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Ruler className="h-3 w-3" /> ห่าง {station.distance.toFixed(1)} กม. • {station.province}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <div className="p-4 text-sm text-center text-muted-foreground flex flex-col items-center gap-2">
+                        <XCircle className="h-8 w-8 text-muted-foreground/50" />
+                        <span>ไม่พบสถานีตรวจวัดในระยะ 10 กม.</span>
+                        <span className="text-xs">ไม่สามารถอนุมัติได้เนื่องจากอยู่นอกเขตบริการ</span>
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-[0.8rem] text-muted-foreground">
+                  * ระบบจัดเรียงสถานีตามระยะทางอัตโนมัติ (ใกล้ที่สุดอยู่ด้านบน)
+                </p>
               </div>
-            )}
+            </div>
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 sm:justify-between">
               <Button
                 variant="outline"
                 onClick={() => handleApprove(false)}
                 disabled={processing}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <XCircle className="h-4 w-4 mr-2" />
-                ไม่อนุมัติ
+                ปฏิเสธ (ไม่อนุมัติ)
               </Button>
               <Button
                 onClick={() => handleApprove(true)}
                 disabled={processing || !selectedStation}
+                className="bg-green-600 hover:bg-green-700"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
-                อนุมัติ
+                อนุมัติและบันทึก
               </Button>
             </DialogFooter>
           </DialogContent>
