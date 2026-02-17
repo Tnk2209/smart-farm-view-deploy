@@ -1,12 +1,20 @@
 import mqtt from 'mqtt';
+import 'dotenv/config';
 
 /**
  * Test script to publish telemetry message to MQTT broker
  * Usage: tsx scripts/test-mqtt-publish.ts
  */
 
-const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://test.mosquitto.org:1883';
 const TOPIC = 'smartfarm/telemetry/IG502-ABC123';
+
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('🚀 MQTT Test Publisher');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+console.log('📍 Broker:', BROKER_URL);
+console.log('📍 Topic:', TOPIC);
+console.log('\n🔌 Connecting to MQTT broker...\n');
 
 const telemetryMessage = {
   device_id: 'IG502-ABC123',
@@ -32,27 +40,40 @@ const telemetryMessage = {
   sim_rssi: -40 + Math.floor(Math.random() * 20),
 };
 
-console.log('🚀 Connecting to MQTT broker:', BROKER_URL);
-
 const client = mqtt.connect(BROKER_URL);
 
 client.on('connect', () => {
-  console.log('✅ Connected to MQTT broker');
-  console.log('\n📡 Publishing telemetry message...');
-  console.log('Topic:', TOPIC);
-  console.log('Message:', JSON.stringify(telemetryMessage, null, 2));
+  console.log('✅ Connected to MQTT broker successfully!\n');
+  console.log('⏳ Waiting 2 seconds to ensure backend is ready...\n');
+  
+  setTimeout(() => {
+    console.log('📡 Publishing telemetry message...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('Topic:', TOPIC);
+    console.log('Message:', JSON.stringify(telemetryMessage, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  client.publish(TOPIC, JSON.stringify(telemetryMessage), (err) => {
-    if (err) {
-      console.error('❌ Failed to publish:', err);
-    } else {
-      console.log('\n✅ Message published successfully!');
-    }
-    client.end();
-  });
+    client.publish(TOPIC, JSON.stringify(telemetryMessage), { qos: 1 }, (err) => {
+      if (err) {
+        console.error('❌ Failed to publish:', err);
+        process.exit(1);
+      } else {
+        console.log('✅ Message published successfully!');
+        console.log('\n👀 Check your backend terminal for incoming message logs...\n');
+        setTimeout(() => {
+          client.end();
+          process.exit(0);
+        }, 2000);
+      }
+    });
+  }, 2000);
 });
 
 client.on('error', (error) => {
-  console.error('❌ MQTT error:', error);
+  console.error('❌ MQTT connection error:', error.message);
   process.exit(1);
+});
+
+client.on('close', () => {
+  console.log('🔌 Connection closed');
 });
