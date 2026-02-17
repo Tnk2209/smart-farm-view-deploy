@@ -24,6 +24,9 @@ import AdminSettings from "./pages/AdminSettings";
 import RegisterPlot from "./pages/RegisterPlot";
 import ApprovePlots from "./pages/ApprovePlots";
 import DiseaseRisk from "./pages/DiseaseRisk";
+import SupportCenter from "./pages/SupportCenter";
+import CreateTicket from "./pages/CreateTicket";
+import TicketDetail from "./pages/TicketDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -89,6 +92,17 @@ const App = () => (
               } />
               <Route path="/admin/settings" element={
                 <ProtectedRoute requiredPermission="manage_station"><AdminSettings /></ProtectedRoute>
+              } />
+
+              {/* Helpdesk Routes */}
+              <Route path="/support" element={
+                <ProtectedRoute><SupportCenter /></ProtectedRoute>
+              } />
+              <Route path="/support/create" element={
+                <ProtectedRoute><CreateTicket /></ProtectedRoute>
+              } />
+              <Route path="/support/:id" element={
+                <ProtectedRoute><TicketDetail /></ProtectedRoute>
               } />
 
               {/* Catch-all */}

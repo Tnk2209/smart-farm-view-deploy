@@ -158,6 +158,39 @@ try {
   `);
   console.log('✅ Indexes for "farm_plot" created');
 
+  // Create support_ticket table (Helpdesk System)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS support_ticket (
+      ticket_id SERIAL PRIMARY KEY,
+      ticket_number VARCHAR(20) UNIQUE NOT NULL,
+      user_id INTEGER REFERENCES "User"(user_id),
+      station_id INTEGER REFERENCES station(station_id),
+      category VARCHAR(50) NOT NULL,
+      topic VARCHAR(100),
+      description TEXT,
+      priority VARCHAR(20) DEFAULT 'normal',
+      status VARCHAR(20) DEFAULT 'open',
+      assigned_to INTEGER REFERENCES "User"(user_id),
+      resolution_note TEXT,
+      source VARCHAR(20),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      resolved_at TIMESTAMP
+    )
+  `);
+  console.log('✅ Table "support_ticket" created');
+
+  // Create index for support_ticket
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_ticket_user 
+    ON support_ticket(user_id, created_at DESC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_ticket_status 
+    ON support_ticket(status)
+  `);
+  console.log('✅ Indexes for "support_ticket" created');
+
   console.log('\n🎉 All migrations completed successfully!');
 } catch (error) {
   console.error('\n❌ Migration failed:', error.message);

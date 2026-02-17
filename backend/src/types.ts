@@ -106,6 +106,29 @@ export interface FarmPlot {
   updated_at: string;
 }
 
+// Support Ticket (Helpdesk System)
+export interface SupportTicket {
+  ticket_id: number;
+  ticket_number: string;
+  user_id: number;
+  station_id?: number;
+  category: 'HARDWARE' | 'SOFTWARE' | 'DATA' | 'ACCOUNT' | 'OTHER';
+  topic: string;
+  description: string;
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  status: 'open' | 'in_progress' | 'waiting' | 'resolved' | 'closed';
+  assigned_to?: number;
+  resolution_note?: string;
+  source: 'WEB' | 'QR_CODE';
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  // Joins
+  username?: string;
+  station_name?: string;
+  assignee_name?: string;
+}
+
 // Telemetry Message Structure (from IoT Device)
 export interface TelemetryMessage {
   device_id: string;

@@ -1,6 +1,6 @@
 import { pool } from './connection.js';
 import type {
-  Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot
+  Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot, SupportTicket
 } from '../types.js';
 
 // ==================== STATION QUERIES ====================
@@ -606,4 +606,124 @@ export async function getHourlyTempHumidityData(
     temperature: Number(row.temperature),
     humidity: Number(row.humidity),
   }));
+}
+
+// ==================== SUPPORT TICKET QUERIES ====================
+
+export async function createTicket(
+  userId: number,
+  ticketNumber: string,
+  category: string,
+  topic: string,
+  description: string,
+  priority: string = 'normal',
+  source: string = 'WEB',
+  stationId?: number
+): Promise<SupportTicket> {
+  const result = await pool.query<SupportTicket>(
+    `INSERT INTO support_ticket (
+       user_id, ticket_number, category, topic, description, priority, source, station_id, status
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'open')
+     RETURNING *`,
+    [userId, ticketNumber, category, topic, description, priority, source, stationId || null]
+  );
+  return result.rows[0];
+}
+
+export async function getAllTickets(): Promise<SupportTicket[]> {
+  const result = await pool.query<SupportTicket>(
+    `SELECT t.*, u.username, s.station_name, a.username as assignee_name
+     FROM support_ticket t
+     LEFT JOIN "User" u ON t.user_id = u.user_id
+     LEFT JOIN station s ON t.station_id = s.station_id
+     LEFT JOIN "User" a ON t.assigned_to = a.user_id
+     ORDER BY 
+       CASE WHEN t.status = 'open' THEN 1 
+            WHEN t.status = 'in_progress' THEN 2 
+            ELSE 3 
+       END,
+       t.created_at DESC`
+  );
+  return result.rows;
+}
+
+export async function getTicketsByUserId(userId: number): Promise<SupportTicket[]> {
+  const result = await pool.query<SupportTicket>(
+    `SELECT t.*, s.station_name
+     FROM support_ticket t
+     LEFT JOIN station s ON t.station_id = s.station_id
+     WHERE t.user_id = $1
+     ORDER BY t.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function getTicketById(ticketId: number): Promise<SupportTicket | null> {
+  const result = await pool.query<SupportTicket>(
+    `SELECT t.*, u.username, s.station_name, a.username as assignee_name
+     FROM support_ticket t
+     LEFT JOIN "User" u ON t.user_id = u.user_id
+     LEFT JOIN station s ON t.station_id = s.station_id
+     LEFT JOIN "User" a ON t.assigned_to = a.user_id
+     WHERE t.ticket_id = $1`,
+    [ticketId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function updateTicketStatus(
+  ticketId: number,
+  status: string,
+  resolutionNote?: string,
+  assignedTo?: number
+): Promise<SupportTicket | null> {
+  let query = 'UPDATE support_ticket SET status = $1, updated_at = CURRENT_TIMESTAMP';
+  const params: any[] = [status];
+  let paramIdx = 2;
+
+  if (resolutionNote !== undefined) {
+    query += `, resolution_note = $${paramIdx++}`;
+    params.push(resolutionNote);
+  }
+
+  if (assignedTo !== undefined) {
+    query += `, assigned_to = $${paramIdx++}`;
+    params.push(assignedTo);
+  }
+
+  if (status === 'resolved' || status === 'closed') {
+    query += `, resolved_at = CURRENT_TIMESTAMP`;
+  }
+
+  query += ` WHERE ticket_id = $${paramIdx} RETURNING *`;
+  params.push(ticketId);
+
+  const result = await pool.query<SupportTicket>(query, params);
+  return result.rows[0] || null;
+}
+
+export async function generateTicketNumber(): Promise<string> {
+  // Format: TKT-YYYYMMDD-XXXX
+  const date = new Date();
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const prefix = `TKT-${yyyy}${mm}${dd}`;
+
+  const result = await pool.query<{ max_num: string }>(
+    `SELECT MAX(ticket_number) as max_num FROM support_ticket WHERE ticket_number LIKE $1`,
+    [`${prefix}%`]
+  );
+
+  let sequence = 1;
+  if (result.rows[0].max_num) {
+    const parts = result.rows[0].max_num.split('-');
+    if (parts.length === 3) {
+      sequence = parseInt(parts[2], 10) + 1;
+    }
+  }
+
+  return `${prefix}-${String(sequence).padStart(4, '0')}`;
 }
