@@ -17,17 +17,18 @@ import diseaseRiskRouter from './routes/diseaseRisk.js';
 import riskRouter from './routes/risk.js';
 import lockControlRouter from './routes/lockControl.js';
 import stationStatusRouter from './routes/stationStatus.js';
+import ticketsRouter from './routes/tickets.js';
 
 const app = express();
 
 // Middleware - CORS configuration
 const allowedOrigins = config.cors.origin;
 
-app.use(cors({ 
+app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -66,6 +67,7 @@ app.use(`${config.apiPrefix}/plots`, plotsRouter);
 app.use(`${config.apiPrefix}/disease-risk`, diseaseRiskRouter);
 app.use(`${config.apiPrefix}/risk`, riskRouter);
 app.use(`${config.apiPrefix}/stations`, lockControlRouter);
+app.use(`${config.apiPrefix}/tickets`, ticketsRouter);
 
 // 404 handler
 app.use((req, res) => {
@@ -115,7 +117,7 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n\n🛑 Shutting down gracefully...');
-  
+
   try {
     await closeMqttConnection();
     await closeConnection();
@@ -129,7 +131,7 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   console.log('\n\n🛑 Received SIGTERM, shutting down...');
-  
+
   try {
     await closeMqttConnection();
     await closeConnection();

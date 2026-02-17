@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import QRCode from "react-qr-code";
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { StationHealth } from '@/components/StationHealth';
@@ -42,7 +43,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Filter } from "lucide-react"
+import { Filter, QrCode as QrIcon } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 // Colors for chart lines
 const CHART_COLORS = [
@@ -565,12 +574,54 @@ export default function StationDetail() {
               <StatusBadge status={station.status} />
             </div>
           </div>
-          {hasPermission('manage_station') && (
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Station
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPermission('manage_station') && (
+              <Button>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Station
+              </Button>
+            )}
+            {hasPermission('manage_station') && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <QrIcon className="h-4 w-4" />
+                    Report
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Station QR Code</DialogTitle>
+                    <DialogDescription>
+                      Scan this code to report issues for {station.station_name}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col items-center justify-center p-6 space-y-4">
+                    <div className="bg-white p-4 rounded-lg">
+                      <QRCode
+                        value={`${window.location.origin}/support/create?station_id=${station.station_id}&source=qr`}
+                        size={200}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground break-all text-center">
+                      {`${window.location.origin}/support/create?station_id=${station.station_id}&source=qr`}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/support/create?station_id=${station.station_id}&source=qr`);
+                        toast({ description: "Link copied to clipboard" });
+                      }}>
+                        Copy Link
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => window.print()}>
+                        Print Page
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

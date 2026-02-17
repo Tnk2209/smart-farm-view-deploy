@@ -36,6 +36,7 @@ import {
   CheckSquare,
   Activity,
   TrendingUp,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ const menuItems = [
   { title: '4 Pillars Risk', url: '/risk-dashboard', icon: TrendingUp, permission: 'view_dashboard', allowedRoles: ['MANAGER', 'SUPER_USER'] },
   { title: 'Disease Risk', url: '/disease-risk', icon: Activity, permission: 'view_dashboard', allowedRoles: ['MANAGER', 'SUPER_USER'] },
   { title: 'Register Plot', url: '/register-plot', icon: MapPinned, permission: 'view_dashboard', allowedRoles: ['USER'] },
+  { title: 'Help & Support', url: '/support', icon: MessageSquare, permission: 'view_dashboard'  },
 ];
 
 const adminItems = [

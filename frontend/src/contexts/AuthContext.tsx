@@ -18,7 +18,8 @@ type Permission =
   | 'manage_sensor'
   | 'configure_threshold' 
   | 'manage_user'
-  | 'view_4_pillars_risk';
+  | 'view_4_pillars_risk'
+  | 'view_helpdesk';
 
 // Role-based permissions matrix (from document STEP 7.5)
 const rolePermissions: Record<UserRole, Permission[]> = {
