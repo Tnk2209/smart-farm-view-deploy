@@ -69,6 +69,9 @@ const PROVINCES = [
     { name: 'Sing Buri', lat: 14.8906, lon: 100.3968, region: 'Central' },
     { name: 'Chai Nat', lat: 15.1852, lon: 100.1253, region: 'Central' },
     { name: 'Nakhon Sawan', lat: 15.7001, lon: 100.0699, region: 'Central' },
+    
+    { name: 'Chanthaburi', lat: 12.825192, lon: 102.010803, region: 'Central' },
+
 ];
 
 const SENSOR_TYPES = [

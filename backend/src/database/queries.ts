@@ -13,6 +13,22 @@ export async function findStationByDeviceId(deviceId: string): Promise<Station |
   return result.rows[0] || null;
 }
 
+export async function findStationByName(stationName: string): Promise<Station | null> {
+  const result = await pool.query<Station>(
+    'SELECT * FROM station WHERE station_name = $1',
+    [stationName]
+  );
+  return result.rows[0] || null;
+}
+
+export async function findStationByCoords(latitude: number, longitude: number): Promise<Station | null> {
+  const result = await pool.query<Station>(
+    'SELECT * FROM station WHERE latitude = $1 AND longitude = $2',
+    [latitude, longitude]
+  );
+  return result.rows[0] || null;
+}
+
 export async function getAllStations(): Promise<Station[]> {
   const result = await pool.query<Station>(
     `SELECT *, 

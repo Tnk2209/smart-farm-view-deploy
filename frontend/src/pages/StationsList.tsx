@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getStations } from '@/lib/api';
+import { getStations, createStation } from '@/lib/api';
 import { Station } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +34,18 @@ import {
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Radio, Search, Plus, MapPin, Eye } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { StationMapPicker } from '@/components/StationMapPicker';
 
 export default function StationsList() {
   const [stations, setStations] = useState<Station[]>([]);
@@ -43,6 +55,15 @@ export default function StationsList() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newStation, setNewStation] = useState({
+    device_id: '',
+    station_name: '',
+    province: '',
+    latitude: '',
+    longitude: ''
+  });
 
   useEffect(() => {
     const fetchStations = async () => {
@@ -60,6 +81,116 @@ export default function StationsList() {
 
     fetchStations();
   }, []);
+
+  const handleLocationSelect = (lat: number, lon: number) => {
+    setNewStation(prev => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lon.toFixed(6)
+    }));
+  };
+
+  const handleCreateStation = async () => {
+    // Validate
+    if (!newStation.device_id || !newStation.station_name || !newStation.province || !newStation.latitude || !newStation.longitude) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const lat = parseFloat(newStation.latitude);
+    const lon = parseFloat(newStation.longitude);
+
+    if (isNaN(lat) || isNaN(lon)) {
+      toast({
+        title: "Validation Error",
+        description: "Latitude and Longitude must be valid numbers",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Frontend Pre-checks (Checking against current state)
+    const duplicateDeviceId = stations.some(s => s.device_id === newStation.device_id);
+    if (duplicateDeviceId) {
+      toast({
+        title: "Validation Error",
+        description: "Device ID นี้มีอยู่ในระบบแล้ว",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const duplicateName = stations.some(s => s.station_name === newStation.station_name);
+    if (duplicateName) {
+      toast({
+        title: "Validation Error",
+        description: "ชื่อสถานีนี้มีอยู่ในระบบแล้ว",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const duplicateCoords = stations.some(s => s.latitude === lat && s.longitude === lon);
+    if (duplicateCoords) {
+      toast({
+        title: "Validation Error",
+        description: "พิกัดนี้มีสถานีอื่นใช้งานอยู่แล้ว",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      toast({
+        title: "Validation Error",
+        description: "Latitude must be between -90 and 90, Longitude between -180 and 180",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await createStation({
+        device_id: newStation.device_id,
+        station_name: newStation.station_name,
+        province: newStation.province,
+        latitude: lat,
+        longitude: lon
+      });
+
+      if (response.success) {
+        toast({
+          title: "Station Created",
+          description: "New station has been successfully created.",
+        });
+        setIsCreateDialogOpen(false);
+        setNewStation({
+          device_id: '',
+          station_name: '',
+          province: '',
+          latitude: '',
+          longitude: ''
+        });
+        // Add new station to the list immediately
+        if (response.data) {
+          setStations(prev => [...prev, response.data!]);
+        }
+      } else {
+        throw new Error(response.error || 'Failed to create station');
+      }
+    } catch (error) {
+      console.error('Failed to create station:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create station",
+        variant: "destructive"
+      });
+    }
+  };
 
   const filteredStations = stations.filter(station => {
     const matchesSearch =
@@ -158,10 +289,103 @@ export default function StationsList() {
             </p>
           </div>
           {hasPermission('manage_station') && (
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Station
-            </Button>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Station
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[1200px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Station</DialogTitle>
+                  <DialogDescription>
+                    Enter the details of the new station here. Click save when you're done.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="device_id" className="text-right">
+                      Device ID <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="device_id"
+                      value={newStation.device_id}
+                      onChange={(e) => setNewStation({ ...newStation, device_id: e.target.value })}
+                      className="col-span-3"
+                      placeholder="e.g. IG502-NEW-STATION"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newStation.station_name}
+                      onChange={(e) => setNewStation({ ...newStation, station_name: e.target.value })}
+                      className="col-span-3"
+                      placeholder="e.g. New Smart Station"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="province" className="text-right">
+                      Province <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="province"
+                      value={newStation.province}
+                      onChange={(e) => setNewStation({ ...newStation, province: e.target.value })}
+                      className="col-span-3"
+                      placeholder="e.g. Chiang Mai"
+                    />
+                  </div>
+
+                  {/* Map Picker */}
+                  <div className="col-span-4 space-y-2">
+                    <Label>Location (Click on map to select)</Label>
+                    <StationMapPicker
+                      latitude={newStation.latitude ? parseFloat(newStation.latitude) : null}
+                      longitude={newStation.longitude ? parseFloat(newStation.longitude) : null}
+                      onLocationSelect={handleLocationSelect}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="latitude" className="text-right">
+                      Latitude <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="latitude"
+                      value={newStation.latitude}
+                      onChange={(e) => setNewStation({ ...newStation, latitude: e.target.value })}
+                      className="col-span-3"
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 13.75"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="longitude" className="text-right">
+                      Longitude <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="longitude"
+                      value={newStation.longitude}
+                      onChange={(e) => setNewStation({ ...newStation, longitude: e.target.value })}
+                      className="col-span-3"
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 100.50"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" onClick={handleCreateStation}>Create Station</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
 
