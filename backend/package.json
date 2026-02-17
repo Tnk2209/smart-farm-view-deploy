@@ -13,7 +13,9 @@
     "test": "vitest",
     "test:mqtt": "tsx scripts/test-mqtt-publish.ts",
     "test:mqtt:js": "node scripts/test-publish.js",
-    "test:mqtt:multiple": "tsx scripts/test-multiple-topics.ts"
+    "test:mqtt:multiple": "tsx scripts/test-multiple-topics.ts",
+    "simulate": "node scripts/simulate-mqtt-v2.js",
+    "simulate:old": "node scripts/simulate-smart-farm.js"
   },
   "keywords": [
     "iot",

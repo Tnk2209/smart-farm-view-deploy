@@ -35,11 +35,21 @@ export interface Station {
   last_active?: string;
 }
 
+// Environmental Sensor Types (matching backend after sensor/status separation)
+export type SensorType =
+  | 'wind_speed_ms'
+  | 'air_temp_c'
+  | 'air_rh_pct'
+  | 'air_pressure_kpa'
+  | 'rain_rate_mmph'
+  | 'rain_mm'
+  | 'soil_rh_pct'
+  | 'soil_temp_c';
+
 export interface Sensor {
   sensor_id: number;
   station_id: number;
-  device_id: string;
-  sensor_type: 'wind_speed' | 'air_temperature' | 'air_humidity' | 'air_pressure' | 'rainfall' | 'soil_moisture' | 'soil_temperature' | 'cabinet_temperature' | 'cabinet_humidity' | 'solar_voltage' | 'battery_voltage' | 'gate_door';
+  sensor_type: SensorType;
   status: 'active' | 'inactive' | 'error';
   installed_at: string;
   station_name?: string;
@@ -71,12 +81,36 @@ export interface Alert {
 
 export interface Threshold {
   threshold_id: number;
-  sensor_type: Sensor['sensor_type'];
+  sensor_type: SensorType;
   min_value: number;
   max_value: number;
   created_by: number;
   updated_at: string;
 }
+
+// Station Status (Device Health) - New Update
+export interface StationStatus {
+  status_id: number;
+  station_id: number;
+  // Cabinet Monitoring
+  cbn_rh_pct?: number;
+  cbn_temp_c?: number;
+  ctrl_temp_c?: number;
+  batt_temp_c?: number;
+  // Solar Power
+  pv_a?: number;
+  pv_v?: number;
+  // Load & Battery
+  load_w?: number;
+  load_a?: number;
+  load_v?: number;
+  chg_a?: number;
+  batt_cap?: number;
+  batt_v?: number;
+  recorded_at: string;
+  created_at: string;
+}
+
 // Farm Plot for UC10, UC11 (New Update:2)
 export interface FarmPlot {
   plot_id: number;

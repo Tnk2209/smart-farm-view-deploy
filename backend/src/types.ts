@@ -6,6 +6,7 @@ export type StationStatus = 'normal' | 'warning' | 'critical' | 'offline';
 export type SensorStatus = 'active' | 'inactive' | 'error';
 
 export type SensorType =
+  // Environmental Sensors (from 'sensor' topic)
   | 'wind_speed_ms'
   | 'air_temp_c'
   | 'air_rh_pct'
@@ -13,7 +14,10 @@ export type SensorType =
   | 'rain_rate_mmph'
   | 'rain_mm'
   | 'soil_rh_pct'
-  | 'soil_temp_c'
+  | 'soil_temp_c';
+
+// Status/Device Health Types (from 'status' topic)
+export type StatusType =
   | 'cbn_rh_pct'
   | 'cbn_temp_c'
   | 'ctrl_temp_c'
@@ -56,6 +60,28 @@ export interface SensorData {
   sensor_id: number;
   value: number;
   recorded_at: string;
+}
+
+export interface StationStatusData {
+  status_id: number;
+  station_id: number;
+  // Cabinet Monitoring
+  cbn_rh_pct?: number;
+  cbn_temp_c?: number;
+  ctrl_temp_c?: number;
+  batt_temp_c?: number;
+  // Solar Power
+  pv_a?: number;
+  pv_v?: number;
+  // Load & Battery
+  load_w?: number;
+  load_a?: number;
+  load_v?: number;
+  chg_a?: number;
+  batt_cap?: number;
+  batt_v?: number;
+  recorded_at: string;
+  created_at: string;
 }
 
 export interface Alert {
@@ -115,6 +141,7 @@ export interface FarmPlot {
 }
 
 // Telemetry Message Structure (from Real IoT Device - RDG0001)
+// Can contain sensor data, status data, or both depending on MQTT topic
 export interface TelemetryMessage {
   schema_ver?: string;
   site_id?: string;
@@ -124,7 +151,7 @@ export interface TelemetryMessage {
   seq: number;
   msg_id: string;
   data: {
-    // Weather sensors (from telemetry topic)
+    // Environmental Sensors (from 'sensor' topic)
     wind_speed_ms?: number;
     air_temp_c?: number;
     air_rh_pct?: number;
@@ -133,7 +160,7 @@ export interface TelemetryMessage {
     rain_mm?: number;
     soil_rh_pct?: number;
     soil_temp_c?: number;
-    // Power/Cabinet sensors (from status topic)
+    // Device Status (from 'status' topic)
     cbn_rh_pct?: number;
     cbn_temp_c?: number;
     ctrl_temp_c?: number;
@@ -151,8 +178,32 @@ export interface TelemetryMessage {
   sim_rssi?: number;
 }
 
-// Field Mapping for Telemetry → Sensor Type
-// (Identity mapping since SensorType now matches field names)
+// Status Message Structure (dedicated for device health data)
+export interface StatusMessage {
+  schema_ver?: string;
+  site_id?: string;
+  device_id: string;
+  ts: string;
+  boot_id: string | number;
+  seq: number;
+  msg_id: string;
+  data: {
+    cbn_rh_pct?: number;
+    cbn_temp_c?: number;
+    ctrl_temp_c?: number;
+    batt_temp_c?: number;
+    pv_a?: number;
+    pv_v?: number;
+    load_w?: number;
+    chg_a?: number;
+    load_a?: number;
+    load_v?: number;
+    batt_cap?: number;
+    batt_v?: number;
+  };
+}
+
+// Field Mapping for Telemetry (sensor data)
 export const TELEMETRY_FIELD_MAPPING: Record<string, SensorType> = {
   wind_speed_ms: 'wind_speed_ms',
   air_temp_c: 'air_temp_c',
@@ -162,6 +213,10 @@ export const TELEMETRY_FIELD_MAPPING: Record<string, SensorType> = {
   rain_mm: 'rain_mm',
   soil_rh_pct: 'soil_rh_pct',
   soil_temp_c: 'soil_temp_c',
+};
+
+// Field Mapping for Status (device health data)
+export const STATUS_FIELD_MAPPING: Record<string, StatusType> = {
   cbn_rh_pct: 'cbn_rh_pct',
   cbn_temp_c: 'cbn_temp_c',
   ctrl_temp_c: 'ctrl_temp_c',
@@ -192,7 +247,7 @@ export interface TelemetryIngestResponse {
   station_id: number;
 }
 
-// Sensor Unit Mapping (matching real MQTT payload fields)
+// Sensor Unit Mapping (for environmental sensors)
 export const SENSOR_UNITS: Record<SensorType, string> = {
   wind_speed_ms: 'm/s',
   air_temp_c: '°C',
@@ -202,6 +257,10 @@ export const SENSOR_UNITS: Record<SensorType, string> = {
   rain_mm: 'mm',
   soil_rh_pct: '%',
   soil_temp_c: '°C',
+};
+
+// Status Unit Mapping (for device health monitoring)
+export const STATUS_UNITS: Record<StatusType, string> = {
   cbn_rh_pct: '%',
   cbn_temp_c: '°C',
   ctrl_temp_c: '°C',

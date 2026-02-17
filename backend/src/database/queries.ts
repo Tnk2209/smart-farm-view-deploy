@@ -1,6 +1,6 @@
 import { pool } from './connection.js';
 import type {
-  Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot
+  Station, Sensor, SensorData, Alert, Threshold, User, Role, FarmPlot, StationStatusData
 } from '../types.js';
 
 // ==================== STATION QUERIES ====================
@@ -606,4 +606,102 @@ export async function getHourlyTempHumidityData(
     temperature: Number(row.temperature),
     humidity: Number(row.humidity),
   }));
+}
+
+// ==================== STATION STATUS QUERIES (Device Health) ====================
+
+/**
+ * Insert station status data (battery, solar, cabinet monitoring)
+ */
+export async function insertStationStatus(
+  stationId: number,
+  data: {
+    cbn_rh_pct?: number;
+    cbn_temp_c?: number;
+    ctrl_temp_c?: number;
+    batt_temp_c?: number;
+    pv_a?: number;
+    pv_v?: number;
+    load_w?: number;
+    load_a?: number;
+    load_v?: number;
+    chg_a?: number;
+    batt_cap?: number;
+    batt_v?: number;
+  },
+  recordedAt: Date
+): Promise<StationStatusData> {
+  const result = await pool.query<StationStatusData>(
+    `INSERT INTO station_status 
+     (station_id, cbn_rh_pct, cbn_temp_c, ctrl_temp_c, batt_temp_c, 
+      pv_a, pv_v, load_w, load_a, load_v, chg_a, batt_cap, batt_v, recorded_at) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+     RETURNING *`,
+    [
+      stationId,
+      data.cbn_rh_pct ?? null,
+      data.cbn_temp_c ?? null,
+      data.ctrl_temp_c ?? null,
+      data.batt_temp_c ?? null,
+      data.pv_a ?? null,
+      data.pv_v ?? null,
+      data.load_w ?? null,
+      data.load_a ?? null,
+      data.load_v ?? null,
+      data.chg_a ?? null,
+      data.batt_cap ?? null,
+      data.batt_v ?? null,
+      recordedAt,
+    ]
+  );
+  return result.rows[0];
+}
+
+/**
+ * Get latest station status for a specific station
+ */
+export async function getLatestStationStatus(stationId: number): Promise<StationStatusData | null> {
+  const result = await pool.query<StationStatusData>(
+    `SELECT * FROM station_status 
+     WHERE station_id = $1 
+     ORDER BY recorded_at DESC 
+     LIMIT 1`,
+    [stationId]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Get station status data within a date range
+ */
+export async function getStationStatusRange(
+  stationId: number,
+  fromDate: Date,
+  toDate: Date
+): Promise<StationStatusData[]> {
+  const result = await pool.query<StationStatusData>(
+    `SELECT * FROM station_status 
+     WHERE station_id = $1 
+       AND recorded_at BETWEEN $2 AND $3 
+     ORDER BY recorded_at ASC`,
+    [stationId, fromDate, toDate]
+  );
+  return result.rows;
+}
+
+/**
+ * Get recent station status (last N records)
+ */
+export async function getRecentStationStatus(
+  stationId: number,
+  limit: number = 100
+): Promise<StationStatusData[]> {
+  const result = await pool.query<StationStatusData>(
+    `SELECT * FROM station_status 
+     WHERE station_id = $1 
+     ORDER BY recorded_at DESC 
+     LIMIT $2`,
+    [stationId, limit]
+  );
+  return result.rows;
 }

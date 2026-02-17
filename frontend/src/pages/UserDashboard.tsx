@@ -65,41 +65,6 @@ function MapCentering({ center }: { center: [number, number] }) {
     return null;
 }
 
-// Helper component to handle Ctrl key interactions
-function MapInteractionHandler() {
-    const map = useMap();
-
-    useEffect(() => {
-        // Disable interactions initially
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Control') {
-                map.dragging.enable();
-                map.scrollWheelZoom.enable();
-            }
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === 'Control') {
-                map.dragging.disable();
-                map.scrollWheelZoom.disable();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [map]);
-
-    return null;
-}
-
 function MapResetControl() {
     const map = useMap();
 
@@ -375,10 +340,8 @@ export default function UserDashboard() {
                                     center={[currentPlot.lat, currentPlot.lon]}
                                     zoom={13}
                                     className="h-full w-full"
-                                    scrollWheelZoom={false}
-                                    dragging={false}
+                                    scrollWheelZoom={true}
                                 >
-                                    <MapInteractionHandler />
                                     <MapResetControl />
                                     <TileLayer
                                         attribution='&copy; OpenStreetMap'

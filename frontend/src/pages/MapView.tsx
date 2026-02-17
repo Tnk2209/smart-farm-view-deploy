@@ -94,42 +94,6 @@ function MapResetControl() {
   );
 }
 
-// Helper component to handle Ctrl key interactions
-function MapInteractionHandler() {
-  const map = useMap();
-
-  useEffect(() => {
-    // Disable interactions initially
-    map.dragging.disable();
-    map.scrollWheelZoom.disable();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        map.dragging.enable();
-        map.scrollWheelZoom.enable();
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      // Clean up by re-enabling default behavior if needed, or keeping it consistent
-    };
-  }, [map]);
-
-  return null;
-}
-
 export default function MapView() {
   const [stations, setStations] = useState<Station[]>([]);
   const [myPlots, setMyPlots] = useState<FarmPlot[]>([]);
@@ -206,10 +170,8 @@ export default function MapView() {
                 center={[13.7563, 100.5018]}
                 zoom={6}
                 className="h-full w-full min-h-[500px]"
-                scrollWheelZoom={false}
-                dragging={false}
+                scrollWheelZoom={true}
               >
-                <MapInteractionHandler />
                 <MapResetControl />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

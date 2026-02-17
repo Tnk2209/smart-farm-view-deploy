@@ -16,6 +16,7 @@ import plotsRouter from './routes/plots.js';
 import diseaseRiskRouter from './routes/diseaseRisk.js';
 import riskRouter from './routes/risk.js';
 import lockControlRouter from './routes/lockControl.js';
+import stationStatusRouter from './routes/stationStatus.js';
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use(`${config.apiPrefix}/auth`, authRouter);
 app.use(`${config.apiPrefix}/roles`, rolesRouter);
 app.use(`${config.apiPrefix}/users`, usersRouter);
 app.use(`${config.apiPrefix}/stations`, stationsRouter);
+app.use(`${config.apiPrefix}/stations`, stationStatusRouter); // Station status endpoints
 app.use(`${config.apiPrefix}/sensors`, sensorsRouter);
 app.use(`${config.apiPrefix}/alerts`, alertsRouter);
 app.use(`${config.apiPrefix}/thresholds`, thresholdsRouter);

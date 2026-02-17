@@ -151,6 +151,43 @@ export async function runMigrations() {
     `);
     console.log('✅ Indexes for "farm_plot" created');
 
+    // Create station_status table for device health monitoring (battery, solar, cabinet)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS station_status (
+        status_id BIGSERIAL PRIMARY KEY,
+        station_id INTEGER NOT NULL REFERENCES station(station_id) ON DELETE CASCADE,
+        
+        -- Cabinet Monitoring
+        cbn_rh_pct DOUBLE PRECISION,
+        cbn_temp_c DOUBLE PRECISION,
+        ctrl_temp_c DOUBLE PRECISION,
+        batt_temp_c DOUBLE PRECISION,
+        
+        -- Solar Power
+        pv_a DOUBLE PRECISION,
+        pv_v DOUBLE PRECISION,
+        
+        -- Load & Battery
+        load_w DOUBLE PRECISION,
+        load_a DOUBLE PRECISION,
+        load_v DOUBLE PRECISION,
+        chg_a DOUBLE PRECISION,
+        batt_cap DOUBLE PRECISION,
+        batt_v DOUBLE PRECISION,
+        
+        recorded_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Table "station_status" created');
+
+    // Create index for station_status time-series queries
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_station_status_time 
+      ON station_status(station_id, recorded_at DESC)
+    `);
+    console.log('✅ Index "idx_station_status_time" created');
+
     console.log('🎉 All migrations completed successfully!');
   } catch (error) {
     console.error('❌ Migration error:', error);

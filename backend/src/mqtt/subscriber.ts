@@ -1,39 +1,83 @@
 import mqtt from 'mqtt';
 import { config } from '../config.js';
 import { processTelemetryMessage, validateTelemetryMessage } from '../services/telemetryService.js';
+import { processStatusMessage, validateStatusMessage } from '../services/statusService.js';
 
 let mqttClient: mqtt.MqttClient | null = null;
 
 /**
- * Process incoming MQTT message (all topics routed to telemetry handler)
- * 
- * Note: Currently all messages are treated as telemetry data.
- * If you need different handlers for different message types in the future,
- * consider implementing topic-based routing.
+ * Determine message type based on topic
+ */
+function getMessageType(topic: string): 'sensor' | 'status' | 'unknown' {
+  const normalized = topic.toLowerCase();
+  
+  if (normalized.includes('sensor') || normalized.includes('telemetry')) {
+    return 'sensor';
+  } else if (normalized.includes('status') || normalized.includes('health')) {
+    return 'status';
+  }
+  
+  return 'unknown';
+}
+
+/**
+ * Process incoming MQTT message based on topic
  */
 async function processMessage(topic: string, payload: any): Promise<void> {
   console.log(`📊 Processing message from topic: ${topic}`);
   
-  // Validate telemetry structure
-  if (!validateTelemetryMessage(payload)) {
-    console.error('❌ Invalid telemetry message structure');
-    console.error('   Make sure the message follows the expected format');
-    return;
-  }
-
-  // Process telemetry
-  const result = await processTelemetryMessage(payload);
+  const messageType = getMessageType(topic);
   
-  if (result.success) {
-    console.log(`✅ ${result.message}`);
-    console.log(`   📊 Records created: ${result.recordsCreated}`);
-    console.log(`   ⚠️  Alerts triggered: ${result.alertsTriggered}`);
-    
-    if (result.errors && result.errors.length > 0) {
-      console.log('   ⚠️  Warnings:', result.errors);
-    }
-  } else {
-    console.error(`❌ ${result.message}`);
+  switch (messageType) {
+    case 'sensor':
+      // Handle sensor/telemetry data
+      if (!validateTelemetryMessage(payload)) {
+        console.error('❌ Invalid telemetry message structure');
+        console.error('   Make sure the message follows the expected format');
+        return;
+      }
+
+      const telemetryResult = await processTelemetryMessage(payload);
+      
+      if (telemetryResult.success) {
+        console.log(`✅ ${telemetryResult.message}`);
+        console.log(`   📊 Records created: ${telemetryResult.recordsCreated}`);
+        console.log(`   ⚠️  Alerts triggered: ${telemetryResult.alertsTriggered}`);
+        
+        if (telemetryResult.errors && telemetryResult.errors.length > 0) {
+          console.log('   ⚠️  Warnings:', telemetryResult.errors);
+        }
+      } else {
+        console.error(`❌ ${telemetryResult.message}`);
+      }
+      break;
+      
+    case 'status':
+      // Handle device status/health data
+      if (!validateStatusMessage(payload)) {
+        console.error('❌ Invalid status message structure');
+        console.error('   Make sure the message follows the expected format');
+        return;
+      }
+
+      const statusResult = await processStatusMessage(payload);
+      
+      if (statusResult.success) {
+        console.log(`✅ ${statusResult.message}`);
+        console.log(`   🔋 Records created: ${statusResult.recordsCreated}`);
+        
+        if (statusResult.errors && statusResult.errors.length > 0) {
+          console.log('   ⚠️  Warnings:', statusResult.errors);
+        }
+      } else {
+        console.error(`❌ ${statusResult.message}`);
+      }
+      break;
+      
+    default:
+      console.warn(`⚠️  Unknown topic type: ${topic}`);
+      console.warn('   Skipping message processing');
+      break;
   }
 }
 

@@ -4,7 +4,7 @@ console.log('━━━━━━━━━━━━━━━━━━━━━━�
 
 import { pool } from './connection.js';
 import { hashPassword } from '../utils/auth.js';
-import type { SensorType } from '../types.js';
+import type { SensorType, StatusType } from '../types.js';
 
 /**
  * Seed initial data for testing and development
@@ -18,7 +18,7 @@ export async function seedDatabase() {
     // 1. Insert Roles
     console.log('📝 Inserting roles...');
     await client.query(`
-      INSERT INTO Role (role_name) VALUES 
+      INSERT INTO role (role_name) VALUES 
       ('USER'), ('MANAGER'), ('SUPER_USER')
       ON CONFLICT (role_name) DO NOTHING
     `);
@@ -38,7 +38,7 @@ export async function seedDatabase() {
 
     for (const user of users) {
       await client.query(
-        `INSERT INTO "User" (username, password_hash, email, role_id, status) 
+        `INSERT INTO "user" (username, password_hash, email, role_id, status) 
          VALUES ($1, $2, $3, $4, 'active')
          ON CONFLICT (username) DO NOTHING`,
         [user.username, demoPassword, user.email, user.roleId]
@@ -69,7 +69,7 @@ export async function seedDatabase() {
     }
     console.log(`✅ ${stations.length} stations inserted\n`);
 
-    // 4. Insert Sensors for each station (matching real MQTT payload)
+    // 4. Insert Sensors for each station (Environmental sensors only)
     console.log('📝 Inserting sensors...');
     const sensorTypes: SensorType[] = [
       'wind_speed_ms',
@@ -80,18 +80,6 @@ export async function seedDatabase() {
       'rain_mm',
       'soil_rh_pct',
       'soil_temp_c',
-      'cbn_rh_pct',
-      'cbn_temp_c',
-      'ctrl_temp_c',
-      'batt_temp_c',
-      'pv_a',
-      'pv_v',
-      'load_w',
-      'chg_a',
-      'load_a',
-      'load_v',
-      'batt_cap',
-      'batt_v',
     ];
 
     const stationResult = await client.query('SELECT station_id FROM station');
@@ -109,9 +97,10 @@ export async function seedDatabase() {
         sensorCount++;
       }
     }
-    console.log(`✅ ${sensorCount} sensors inserted\n`);
+    console.log(`✅ ${sensorCount} sensors inserted`);
+    console.log(`   📌 Note: Status/device health data stored separately in station_status table\n`);
 
-    // 5. Insert Thresholds (matching real MQTT payload fields)
+    // 5. Insert Thresholds (for environmental sensors only)
     console.log('📝 Inserting thresholds...');
     const thresholds = [
       { type: 'wind_speed_ms', min: 0, max: 25 },
@@ -122,18 +111,6 @@ export async function seedDatabase() {
       { type: 'rain_mm', min: 0, max: 500 },
       { type: 'soil_rh_pct', min: 20, max: 80 },
       { type: 'soil_temp_c', min: 15, max: 35 },
-      { type: 'cbn_rh_pct', min: 30, max: 70 },
-      { type: 'cbn_temp_c', min: 20, max: 45 },
-      { type: 'ctrl_temp_c', min: 20, max: 45 },
-      { type: 'batt_temp_c', min: 15, max: 40 },
-      { type: 'pv_a', min: 0, max: 20 },
-      { type: 'pv_v', min: 0, max: 30 },
-      { type: 'load_w', min: 0, max: 500 },
-      { type: 'chg_a', min: 0, max: 20 },
-      { type: 'load_a', min: 0, max: 20 },
-      { type: 'load_v', min: 11, max: 15 },
-      { type: 'batt_cap', min: 20, max: 100 },
-      { type: 'batt_v', min: 11.5, max: 14.5 },
     ];
 
     for (const threshold of thresholds) {
@@ -144,7 +121,8 @@ export async function seedDatabase() {
         [threshold.type, threshold.min, threshold.max]
       );
     }
-    console.log(`✅ ${thresholds.length} thresholds inserted\n`);
+    console.log(`✅ ${thresholds.length} thresholds inserted`);
+    console.log(`   📌 Note: Status data (battery, solar, etc.) has no thresholds - monitoring only\n`);
 
     console.log('🎉 Database seeded successfully!');
     console.log(`\n📊 Summary:`);

@@ -5,7 +5,7 @@ import {
   User, Station, Sensor, SensorData, Alert, Threshold,
   DashboardSummary, ApiResponse, UserRole, Role, FarmPlot,
   StationDiseaseRisk, PlotDiseaseRisk, AllStationsDiseaseRisk,
-  RiskDashboardSummary, PillarSummary
+  RiskDashboardSummary, PillarSummary, StationStatus
 } from './types';
 import { apiFetch, apiConfig } from './apiConfig';
 
@@ -898,6 +898,71 @@ export const getLockStatus = async (
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to get lock status',
+    };
+  }
+};
+
+// ============ STATION STATUS API (Device Health) ============
+
+/**
+ * GET /api/stations/:id/status/latest
+ * Get latest device health status for a station
+ * Access: All authenticated users
+ */
+export const getStationStatus = async (
+  stationId: number
+): Promise<ApiResponse<StationStatus>> => {
+  try {
+    return await apiFetch<ApiResponse<StationStatus>>(
+      `/stations/${stationId}/status/latest`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station status',
+    };
+  }
+};
+
+/**
+ * GET /api/stations/:id/status/recent
+ * Get recent device health status records
+ * Access: All authenticated users
+ */
+export const getStationStatusHistory = async (
+  stationId: number,
+  limit: number = 100
+): Promise<ApiResponse<StationStatus[]>> => {
+  try {
+    return await apiFetch<ApiResponse<StationStatus[]>>(
+      `/stations/${stationId}/status/recent?limit=${limit}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station status history',
+    };
+  }
+};
+
+/**
+ * GET /api/stations/:id/status/range
+ * Get device health status within a date range
+ * Access: All authenticated users
+ */
+export const getStationStatusRange = async (
+  stationId: number,
+  fromDate: string,
+  toDate: string
+): Promise<ApiResponse<StationStatus[]>> => {
+  try {
+    return await apiFetch<ApiResponse<StationStatus[]>>(
+      `/stations/${stationId}/status/range?from=${fromDate}&to=${toDate}`
+    );
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station status range',
     };
   }
 };

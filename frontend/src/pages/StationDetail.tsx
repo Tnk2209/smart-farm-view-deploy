@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getStationById, getStationLatestData, getAlerts, getAlertsByStationId, getLockStatus, sendLockCommand, getRiskDashboardSummary } from '@/lib/api';
-import { Station, Sensor, Alert, LockStatusData, RiskDashboardSummary, PillarType } from '@/lib/types';
+import { StationHealth } from '@/components/StationHealth';
+import { getStationById, getStationLatestData, getAlerts, getAlertsByStationId, getLockStatus, sendLockCommand, getRiskDashboardSummary, getStationStatusRange } from '@/lib/api';
+import { Station, Sensor, Alert, LockStatusData, RiskDashboardSummary, PillarType, StationStatus } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SeverityBadge } from '@/components/SeverityBadge';
 import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
@@ -10,10 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Radio, MapPin, Thermometer, AlertTriangle, ArrowLeft, ArrowRight,
   Calendar, ExternalLink, Edit, Lock, Unlock, Shield, Clock,
-  Droplets, Wind, CloudRain, Bug, Activity
+  Droplets, Wind, CloudRain, Bug, Activity, Battery, Zap
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -57,6 +59,68 @@ const CHART_COLORS = [
   '#15c8ffff', // green-600
 ];
 
+// Baseline Y positions for each sensor type (for timeline chart)
+const SENSOR_BASELINES: Record<string, number> = {
+  wind_speed_ms: 8,
+  air_temp_c: 7,
+  air_rh_pct: 6,
+  air_pressure_kpa: 5,
+  rain_rate_mmph: 4,
+  rain_mm: 3,
+  soil_rh_pct: 2,
+  soil_temp_c: 1,
+};
+
+// Baseline Y positions for device status fields
+const STATUS_BASELINES: Record<string, number> = {
+  batt_v: 12,
+  batt_cap: 11,
+  batt_temp_c: 10,
+  pv_v: 9,
+  pv_a: 8,
+  load_w: 7,
+  load_a: 6,
+  load_v: 5,
+  chg_a: 4,
+  cbn_temp_c: 3,
+  cbn_rh_pct: 2,
+  ctrl_temp_c: 1,
+};
+
+// Valid ranges to determine if sensor/status is working normally
+const SENSOR_VALID_RANGES: Record<string, { min: number; max: number }> = {
+  wind_speed_ms: { min: 0, max: 50 },
+  air_temp_c: { min: -10, max: 60 },
+  air_rh_pct: { min: 0, max: 100 },
+  air_pressure_kpa: { min: 80, max: 120 },
+  rain_rate_mmph: { min: 0, max: 200 },
+  rain_mm: { min: 0, max: 500 },
+  soil_rh_pct: { min: 0, max: 100 },
+  soil_temp_c: { min: -5, max: 60 },
+};
+
+const STATUS_VALID_RANGES: Record<string, { min: number; max: number }> = {
+  batt_v: { min: 8, max: 16 },
+  batt_cap: { min: 0, max: 100 },
+  batt_temp_c: { min: -10, max: 70 },
+  pv_v: { min: 0, max: 30 },
+  pv_a: { min: 0, max: 20 },
+  load_w: { min: 0, max: 300 },
+  load_a: { min: 0, max: 30 },
+  load_v: { min: 0, max: 20 },
+  chg_a: { min: 0, max: 20 },
+  cbn_temp_c: { min: -10, max: 70 },
+  cbn_rh_pct: { min: 0, max: 100 },
+  ctrl_temp_c: { min: -10, max: 80 },
+};
+
+// Check if value is valid (returns baseline if valid, 0 if invalid)
+const getStatusValue = (value: number | null | undefined, validRange: { min: number; max: number }, baseline: number): number => {
+  if (value === null || value === undefined) return 0;
+  if (value >= validRange.min && value <= validRange.max) return baseline;
+  return 0; // Invalid/problem - drop to 0
+};
+
 export default function StationDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -75,10 +139,15 @@ export default function StationDetail() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'lock' | 'unlock' | null>(null);
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'sensors' | 'deviceStatus'>('sensors');
+
   // Chart State
   const [timeRange, setTimeRange] = useState<string>('24h');
   const [visibleSensorIds, setVisibleSensorIds] = useState<string[]>([]);
+  const [visibleStatusFields, setVisibleStatusFields] = useState<string[]>(['batt_v', 'batt_cap', 'pv_v', 'load_w']);
   const [historyData, setHistoryData] = useState<any[]>([]);
+  const [statusHistoryData, setStatusHistoryData] = useState<any[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
 
   useEffect(() => {
@@ -185,15 +254,22 @@ export default function StationDetail() {
 
         const results = await Promise.all(promises);
 
-        // Merge Logic
+        // Merge Logic with Status Timeline
         let allPoints: any[] = [];
         results.forEach((res, index) => {
           if (res.success && res.data) {
             const sensorId = validSensors[index].sensor.sensor_id.toString();
+            const sensorType = validSensors[index].sensor.sensor_type;
+            const baseline = SENSOR_BASELINES[sensorType] || 1;
+            const validRange = SENSOR_VALID_RANGES[sensorType] || { min: 0, max: 100 };
+            
             const data = res.data.map(d => ({
               ...d,
               sensorId,
-              timeMs: new Date(d.recorded_at).getTime()
+              sensorType,
+              timeMs: new Date(d.recorded_at).getTime(),
+              rawValue: d.value,
+              statusValue: getStatusValue(d.value, validRange, baseline)
             }));
             allPoints = [...allPoints, ...data];
           }
@@ -232,7 +308,10 @@ export default function StationDetail() {
             };
           }
 
-          currentBucket[point.sensorId] = point.value;
+          // Store both status value (baseline or 0) and raw values
+          currentBucket[point.sensorId] = point.statusValue;
+          currentBucket[`${point.sensorId}_raw`] = point.rawValue;
+          currentBucket[`${point.sensorId}_type`] = point.sensorType;
         });
         if (currentBucket) mergedData.push(currentBucket);
 
@@ -250,11 +329,126 @@ export default function StationDetail() {
 
   }, [timeRange, latestData]); // Re-fetch if timeRange changes or station data reloads
 
+  // Fetch Station Status History when activeTab is 'deviceStatus'
+  useEffect(() => {
+    if (activeTab !== 'deviceStatus' || !id) return;
+
+    const fetchStatusHistory = async () => {
+      setChartLoading(true);
+      try {
+        const stationId = parseInt(id);
+        const endDate = new Date();
+        let startDate = new Date();
+
+        switch (timeRange) {
+          case '30m':
+            startDate = subMinutes(endDate, 30);
+            break;
+          case '1h':
+            startDate = subHours(endDate, 1);
+            break;
+          case '3h':
+            startDate = subHours(endDate, 3);
+            break;
+          case '6h':
+            startDate = subHours(endDate, 6);
+            break;
+          case '24h':
+            startDate = subHours(endDate, 24);
+            break;
+          case '3d':
+            startDate = subDays(endDate, 3);
+            break;
+          case '7d':
+            startDate = subDays(endDate, 7);
+            break;
+          case '14d':
+            startDate = subDays(endDate, 14);
+            break;
+          case '30d':
+            startDate = subDays(endDate, 30);
+            break;
+          default:
+            startDate = subHours(endDate, 24);
+        }
+
+        const response = await getStationStatusRange(
+          stationId,
+          startDate.toISOString(),
+          endDate.toISOString()
+        );
+
+        if (response.success && response.data) {
+          // Format status data for chart with normalization
+          const formattedData = response.data.map(status => {
+            let timeFormat = 'HH:mm';
+            if (['3d', '7d', '14d', '30d'].includes(timeRange)) {
+              timeFormat = 'MMM d HH:mm';
+            }
+            if (['30d'].includes(timeRange)) {
+              timeFormat = 'MMM d';
+            }
+
+            return {
+              time: format(new Date(status.recorded_at), timeFormat),
+              originalDate: status.recorded_at,
+              // Status values (baseline or 0)
+              batt_v: getStatusValue(status.batt_v, STATUS_VALID_RANGES.batt_v, STATUS_BASELINES.batt_v),
+              batt_cap: getStatusValue(status.batt_cap, STATUS_VALID_RANGES.batt_cap, STATUS_BASELINES.batt_cap),
+              batt_temp_c: getStatusValue(status.batt_temp_c, STATUS_VALID_RANGES.batt_temp_c, STATUS_BASELINES.batt_temp_c),
+              pv_v: getStatusValue(status.pv_v, STATUS_VALID_RANGES.pv_v, STATUS_BASELINES.pv_v),
+              pv_a: getStatusValue(status.pv_a, STATUS_VALID_RANGES.pv_a, STATUS_BASELINES.pv_a),
+              load_w: getStatusValue(status.load_w, STATUS_VALID_RANGES.load_w, STATUS_BASELINES.load_w),
+              load_a: getStatusValue(status.load_a, STATUS_VALID_RANGES.load_a, STATUS_BASELINES.load_a),
+              load_v: getStatusValue(status.load_v, STATUS_VALID_RANGES.load_v, STATUS_BASELINES.load_v),
+              chg_a: getStatusValue(status.chg_a, STATUS_VALID_RANGES.chg_a, STATUS_BASELINES.chg_a),
+              cbn_temp_c: getStatusValue(status.cbn_temp_c, STATUS_VALID_RANGES.cbn_temp_c, STATUS_BASELINES.cbn_temp_c),
+              cbn_rh_pct: getStatusValue(status.cbn_rh_pct, STATUS_VALID_RANGES.cbn_rh_pct, STATUS_BASELINES.cbn_rh_pct),
+              ctrl_temp_c: getStatusValue(status.ctrl_temp_c, STATUS_VALID_RANGES.ctrl_temp_c, STATUS_BASELINES.ctrl_temp_c),
+              // Raw values (for tooltip)
+              batt_v_raw: status.batt_v,
+              batt_cap_raw: status.batt_cap,
+              batt_temp_c_raw: status.batt_temp_c,
+              pv_v_raw: status.pv_v,
+              pv_a_raw: status.pv_a,
+              load_w_raw: status.load_w,
+              load_a_raw: status.load_a,
+              load_v_raw: status.load_v,
+              chg_a_raw: status.chg_a,
+              cbn_temp_c_raw: status.cbn_temp_c,
+              cbn_rh_pct_raw: status.cbn_rh_pct,
+              ctrl_temp_c_raw: status.ctrl_temp_c,
+            };
+          });
+
+          setStatusHistoryData(formattedData);
+        } else {
+          setStatusHistoryData([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch status history:', error);
+        setStatusHistoryData([]);
+      } finally {
+        setChartLoading(false);
+      }
+    };
+
+    fetchStatusHistory();
+  }, [timeRange, activeTab, id]);
+
   const toggleSensorVisibility = (sensorId: string) => {
     setVisibleSensorIds(prev =>
       prev.includes(sensorId)
         ? prev.filter(id => id !== sensorId)
         : [...prev, sensorId]
+    );
+  };
+
+  const toggleStatusFieldVisibility = (field: string) => {
+    setVisibleStatusFields(prev =>
+      prev.includes(field)
+        ? prev.filter(f => f !== field)
+        : [...prev, field]
     );
   };
 
@@ -468,87 +662,107 @@ export default function StationDetail() {
             </CardContent>
           </Card>
 
-          {/* Sensors Card - Redesigned */}
+          {/* Sensors & Device Status Tabs */}
           <Card className="lg:col-span-2 border-none shadow-none bg-transparent">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold flex items-center gap-2">
-                  <Thermometer className="h-5 w-5 text-primary" />
-                  Sensors ({latestData.filter(item => item.sensor.sensor_type !== 'gate_door').length})
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Monitoring devices installed at this station
-                </p>
+            <Tabs defaultValue="sensors" value={activeTab} onValueChange={(val) => setActiveTab(val as 'sensors' | 'deviceStatus')}>
+              <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold flex items-center gap-2">
+                    <Thermometer className="h-5 w-5 text-primary" />
+                    Station Data
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {activeTab === 'sensors' ? 'Environmental sensor readings' : 'Device health and power status'}
+                  </p>
+                </div>
+                <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+                  <TabsTrigger value="sensors" className="flex items-center gap-2">
+                    <Thermometer className="h-4 w-4" />
+                    Sensors ({latestData.filter(item => item.sensor.sensor_type !== 'gate_door').length})
+                  </TabsTrigger>
+                  <TabsTrigger value="deviceStatus" className="flex items-center gap-2">
+                    <Battery className="h-4 w-4" />
+                    Device Status
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </div>
 
-            {latestData.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <Thermometer className="h-10 w-10 mb-4 opacity-20" />
-                  <p>No sensors installed at this station</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                {latestData.map((item, index) => {
-                  const { sensor, latestData: data } = item;
+              {/* Sensors Tab Content */}
+              <TabsContent value="sensors" className="mt-0">
+                {latestData.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                      <Thermometer className="h-10 w-10 mb-4 opacity-20" />
+                      <p>No sensors installed at this station</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                    {latestData.map((item, index) => {
+                      const { sensor, latestData: data } = item;
 
-                  // Hide gate_door sensor - it's shown in Lock Control Card
-                  if (sensor.sensor_type === 'gate_door') {
-                    return null;
-                  }
+                      // Hide gate_door sensor - it's shown in Lock Control Card
+                      if (sensor.sensor_type === 'gate_door') {
+                        return null;
+                      }
 
-                  return (
-                    <Link
-                      key={`${sensor.sensor_id}-${index}`}
-                      to={`/sensors/${sensor.sensor_id}`}
-                      className="block group"
-                    >
-                      <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 relative bg-card/50 backdrop-blur-sm border-muted/60">
-                        {/* Active Indicator Line */}
-                        <div className={`absolute top-0 left-0 w-1 h-full ${sensor.status === 'active' ? 'bg-primary' :
-                          sensor.status === 'error' ? 'bg-destructive' : 'bg-muted'
-                          }`} />
+                      return (
+                        <Link
+                          key={`${sensor.sensor_id}-${index}`}
+                          to={`/sensors/${sensor.sensor_id}`}
+                          className="block group"
+                        >
+                          <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 relative bg-card/50 backdrop-blur-sm border-muted/60">
+                            {/* Active Indicator Line */}
+                            <div className={`absolute top-0 left-0 w-1 h-full ${sensor.status === 'active' ? 'bg-primary' :
+                              sensor.status === 'error' ? 'bg-destructive' : 'bg-muted'
+                              }`} />
 
-                        <CardContent className="p-4 pl-5">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="p-2 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                              <SensorIcon type={sensor.sensor_type} className="h-5 w-5" />
-                            </div>
-                            {sensor.status === 'active' && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-500/30 text-green-600 bg-green-500/10">
-                                Active
-                              </Badge>
-                            )}
-                          </div>
+                            <CardContent className="p-4 pl-5">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="p-2 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                                  <SensorIcon type={sensor.sensor_type} className="h-5 w-5" />
+                                </div>
+                                {sensor.status === 'active' && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-500/30 text-green-600 bg-green-500/10">
+                                    Active
+                                  </Badge>
+                                )}
+                              </div>
 
-                          <div className="space-y-1.5">
-                            <p className="text-sm font-medium text-muted-foreground line-clamp-1" title={sensorTypeLabels[sensor.sensor_type]}>
-                              {sensorTypeLabels[sensor.sensor_type]}
-                            </p>
-                            <div className="flex items-baseline gap-1">
-                              {data?.value !== undefined && data?.value !== null ? (
-                                <>
-                                  <span className="text-2xl font-bold tracking-tight text-foreground">
-                                    {Number(data.value).toFixed(2)}
-                                  </span>
-                                  <span className="text-xs font-medium text-muted-foreground">
-                                    {sensorTypeUnits[sensor.sensor_type]}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-xl font-mono text-muted-foreground/50">--</span>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+                              <div className="space-y-1.5">
+                                <p className="text-sm font-medium text-muted-foreground line-clamp-1" title={sensorTypeLabels[sensor.sensor_type]}>
+                                  {sensorTypeLabels[sensor.sensor_type]}
+                                </p>
+                                <div className="flex items-baseline gap-1">
+                                  {data?.value !== undefined && data?.value !== null ? (
+                                    <>
+                                      <span className="text-2xl font-bold tracking-tight text-foreground">
+                                        {Number(data.value).toFixed(2)}
+                                      </span>
+                                      <span className="text-xs font-medium text-muted-foreground">
+                                        {sensorTypeUnits[sensor.sensor_type]}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-xl font-mono text-muted-foreground/50">--</span>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Device Status Tab Content */}
+              <TabsContent value="deviceStatus" className="mt-0">
+                <StationHealth stationId={parseInt(id!)} />
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 
@@ -557,69 +771,126 @@ export default function StationDetail() {
           <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-2">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                Environmental Trends
+                {activeTab === 'sensors' ? (
+                  <>
+                    <Activity className="h-5 w-5 text-primary" />
+                    Environmental Trends
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-5 w-5 text-primary" />
+                    Device Status Trends
+                  </>
+                )}
               </CardTitle>
               <CardDescription>
-                Historical data visualization
+                {activeTab === 'sensors' 
+                  ? 'Historical environmental data visualization'
+                  : 'Battery, solar, and power system monitoring'}
               </CardDescription>
             </div>
-            {/* Sensor Filter Dropdown */}
+            {/* Filter Dropdown (Sensors or Status Fields) */}
             <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-2 border-dashed">
-                    <Filter className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline-block">Sensors</span>
-                    <span className="inline-block sm:hidden">Filter</span>
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] min-w-5">
-                      {visibleSensorIds.length}
-                    </Badge>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[240px]">
-                  <DropdownMenuLabel>
-                    Select Sensors ({visibleSensorIds.length}/{latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length})
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={visibleSensorIds.length === latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        const allIds = latestData
-                          .filter(d => d.sensor.sensor_type !== 'gate_door')
-                          .map(d => d.sensor.sensor_id.toString());
-                        setVisibleSensorIds(allIds);
-                      } else {
-                        setVisibleSensorIds([]);
-                      }
-                    }}
-                  >
-                    Select All
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuSeparator />
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {latestData
-                      .filter(d => d.sensor.sensor_type !== 'gate_door')
-                      .map((item, index) => {
-                        const sId = item.sensor.sensor_id.toString();
-                        const color = CHART_COLORS[index % CHART_COLORS.length];
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={sId}
-                            checked={visibleSensorIds.includes(sId)}
-                            onCheckedChange={() => toggleSensorVisibility(sId)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                              <span className="truncate">{sensorTypeLabels[item.sensor.sensor_type]}</span>
-                            </div>
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {activeTab === 'sensors' ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-2 border-dashed">
+                      <Filter className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline-block">Sensors</span>
+                      <span className="inline-block sm:hidden">Filter</span>
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] min-w-5">
+                        {visibleSensorIds.length}
+                      </Badge>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[240px]">
+                    <DropdownMenuLabel>
+                      Select Sensors ({visibleSensorIds.length}/{latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length})
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={visibleSensorIds.length === latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          const allIds = latestData
+                            .filter(d => d.sensor.sensor_type !== 'gate_door')
+                            .map(d => d.sensor.sensor_id.toString());
+                          setVisibleSensorIds(allIds);
+                        } else {
+                          setVisibleSensorIds([]);
+                        }
+                      }}
+                    >
+                      Select All
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuSeparator />
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {latestData
+                        .filter(d => d.sensor.sensor_type !== 'gate_door')
+                        .map((item, index) => {
+                          const sId = item.sensor.sensor_id.toString();
+                          const color = CHART_COLORS[index % CHART_COLORS.length];
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={sId}
+                              checked={visibleSensorIds.includes(sId)}
+                              onCheckedChange={() => toggleSensorVisibility(sId)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                <span className="truncate">{sensorTypeLabels[item.sensor.sensor_type]}</span>
+                              </div>
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-2 border-dashed">
+                      <Filter className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline-block">Fields</span>
+                      <span className="inline-block sm:hidden">Filter</span>
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] min-w-5">
+                        {visibleStatusFields.length}
+                      </Badge>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[240px]">
+                    <DropdownMenuLabel>
+                      Select Fields ({visibleStatusFields.length}/12)
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {[
+                      { key: 'batt_v', label: 'แรงดันแบตเตอรี่ (V)', color: '#2563eb' },
+                      { key: 'batt_cap', label: 'ความจุแบตเตอรี่ (%)', color: '#16a34a' },
+                      { key: 'batt_temp_c', label: 'อุณหภูมิแบตเตอรี่ (°C)', color: '#dc2626' },
+                      { key: 'pv_v', label: 'แรงดันโซลาร์ (V)', color: '#f59e0b' },
+                      { key: 'pv_a', label: 'กระแสโซลาร์ (A)', color: '#f97316' },
+                      { key: 'load_w', label: 'กำลังโหลด (W)', color: '#0891b2' },
+                      { key: 'load_a', label: 'กระแสโหลด (A)', color: '#06b6d4' },
+                      { key: 'load_v', label: 'แรงดันโหลด (V)', color: '#14b8a6' },
+                      { key: 'chg_a', label: 'กระแสชาร์จ (A)', color: '#10b981' },
+                      { key: 'cbn_temp_c', label: 'อุณหภูมิตู้ (°C)', color: '#d97706' },
+                      { key: 'cbn_rh_pct', label: 'ความชื้นในตู้ (%)', color: '#9333ea' },
+                      { key: 'ctrl_temp_c', label: 'อุณหภูมิ Controller (°C)', color: '#db2777' },
+                    ].map(field => (
+                      <DropdownMenuCheckboxItem
+                        key={field.key}
+                        checked={visibleStatusFields.includes(field.key)}
+                        onCheckedChange={() => toggleStatusFieldVisibility(field.key)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: field.color }} />
+                          <span className="truncate text-xs">{field.label}</span>
+                        </div>
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Time Range Filter */}
               <Select value={timeRange} onValueChange={setTimeRange}>
@@ -641,21 +912,44 @@ export default function StationDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Legend (Instead of Toggle Buttons) */}
+            {/* Legend */}
             <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-hide mb-2">
-              {latestData
-                .filter(d => d.sensor.sensor_type !== 'gate_door')
-                .filter(d => visibleSensorIds.includes(d.sensor.sensor_id.toString()))
-                .map((item, index) => {
-                  const color = CHART_COLORS[index % CHART_COLORS.length];
-                  return (
-                    <div key={item.sensor.sensor_id} className="flex items-center gap-1.5 min-w-fit px-2 py-1 rounded-md bg-muted/40 border border-transparent hover:border-border transition-colors">
-                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="text-[10px] font-medium text-foreground whitespace-nowrap">{sensorTypeLabels[item.sensor.sensor_type]}</span>
+              {activeTab === 'sensors' ? (
+                latestData
+                  .filter(d => d.sensor.sensor_type !== 'gate_door')
+                  .filter(d => visibleSensorIds.includes(d.sensor.sensor_id.toString()))
+                  .map((item, index) => {
+                    const color = CHART_COLORS[index % CHART_COLORS.length];
+                    return (
+                      <div key={item.sensor.sensor_id} className="flex items-center gap-1.5 min-w-fit px-2 py-1 rounded-md bg-muted/40 border border-transparent hover:border-border transition-colors">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="text-[10px] font-medium text-foreground whitespace-nowrap">{sensorTypeLabels[item.sensor.sensor_type]}</span>
+                      </div>
+                    )
+                  })
+              ) : (
+                [
+                  { key: 'batt_v', label: 'แรงดันแบตเตอรี่', color: '#2563eb' },
+                  { key: 'batt_cap', label: 'ความจุแบตเตอรี่', color: '#16a34a' },
+                  { key: 'batt_temp_c', label: 'อุณหภูมิแบต', color: '#dc2626' },
+                  { key: 'pv_v', label: 'แรงดันโซลาร์', color: '#f59e0b' },
+                  { key: 'pv_a', label: 'กระแสโซลาร์', color: '#f97316' },
+                  { key: 'load_w', label: 'กำลังโหลด', color: '#0891b2' },
+                  { key: 'load_a', label: 'กระแสโหลด', color: '#06b6d4' },
+                  { key: 'load_v', label: 'แรงดันโหลด', color: '#14b8a6' },
+                  { key: 'chg_a', label: 'กระแสชาร์จ', color: '#10b981' },
+                  { key: 'cbn_temp_c', label: 'อุณหภูมิตู้', color: '#d97706' },
+                  { key: 'cbn_rh_pct', label: 'ความชื้นในตู้', color: '#9333ea' },
+                  { key: 'ctrl_temp_c', label: 'อุณหภูมิ Controller', color: '#db2777' },
+                ]
+                  .filter(field => visibleStatusFields.includes(field.key))
+                  .map(field => (
+                    <div key={field.key} className="flex items-center gap-1.5 min-w-fit px-2 py-1 rounded-md bg-muted/40 border border-transparent hover:border-border transition-colors">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: field.color }} />
+                      <span className="text-[10px] font-medium text-foreground whitespace-nowrap">{field.label}</span>
                     </div>
-                  )
-                })
-              }
+                  ))
+              )}
             </div>
 
             <div className="h-[350px] w-full">
@@ -663,7 +957,7 @@ export default function StationDetail() {
                 <div className="h-full w-full flex items-center justify-center">
                   <Skeleton className="h-[300px] w-full" />
                 </div>
-              ) : historyData.length > 0 && visibleSensorIds.length > 0 ? (
+              ) : activeTab === 'sensors' && historyData.length > 0 && visibleSensorIds.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historyData} margin={{ top: 5, right: 30, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.2} />
@@ -674,24 +968,26 @@ export default function StationDetail() {
                       stroke="hsl(var(--muted-foreground))"
                     />
 
-                    {/* Primary Left Axis */}
+                    {/* Status Timeline Y Axis */}
                     <YAxis
-                      yAxisId="left"
-                      tick={{ fontSize: 12 }}
+                      domain={[0, 9]}
+                      ticks={[1, 2, 3, 4, 5, 6, 7, 8]}
+                      tick={{ fontSize: 10 }}
                       stroke="hsl(var(--muted-foreground))"
-                      label={{ value: 'Standard Units', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'hsl(var(--muted-foreground))', fontSize: 10, opacity: 0.5 } }}
-                    />
-
-                    {/* Secondary Right Axis (For Pressure if present) */}
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tick={{ fontSize: 12 }}
-                      stroke="hsl(var(--muted-foreground))"
-                      hide={!visibleSensorIds.some(id => {
-                        const s = latestData.find(d => d.sensor.sensor_id.toString() === id);
-                        return s?.sensor.sensor_type === 'air_pressure_hpa';
-                      })}
+                      label={{ value: 'Sensor Status', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'hsl(var(--muted-foreground))', fontSize: 10, opacity: 0.7 } }}
+                      tickFormatter={(value) => {
+                        const sensorNames: Record<number, string> = {
+                          1: 'อุณหภูมิดิน',
+                          2: 'ความชื้นดิน',
+                          3: 'ปริมาณฝน',
+                          4: 'อัตราฝน',
+                          5: 'ความกดอากาศ',
+                          6: 'ความชื้นอากาศ',
+                          7: 'อุณหภูมิอากาศ',
+                          8: 'ความเร็วลม',
+                        };
+                        return sensorNames[value] || '';
+                      }}
                     />
 
                     <Tooltip
@@ -703,7 +999,17 @@ export default function StationDetail() {
                       }}
                       itemStyle={{ color: 'hsl(var(--foreground))' }}
                       labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}
-                      formatter={(value: any) => Number(value).toFixed(2)}
+                      formatter={(value: any, name: any, props: any) => {
+                        const sensorId = name;
+                        const rawValue = props.payload[`${sensorId}_raw`];
+                        const statusValue = value;
+                        const sensor = latestData.find(d => d.sensor.sensor_id.toString() === sensorId);
+                        const unit = sensor ? sensorTypeUnits[sensor.sensor.sensor_type] : '';
+                        const label = sensor ? sensorTypeLabels[sensor.sensor.sensor_type] : name;
+                        const isWorking = statusValue > 0;
+                        const status = isWorking ? '✓ ปกติ' : '✗ ผิดปกติ';
+                        return [`${rawValue?.toFixed(2) || '--'} ${unit} [${status}]`, label];
+                      }}
                     />
 
                     {latestData
@@ -712,15 +1018,12 @@ export default function StationDetail() {
                         const sId = item.sensor.sensor_id.toString();
                         if (!visibleSensorIds.includes(sId)) return null;
 
-                        const isPressure = item.sensor.sensor_type === 'air_pressure_hpa';
-
                         return (
                           <Line
                             key={sId}
-                            yAxisId={isPressure ? "right" : "left"}
                             type="monotone"
                             dataKey={sId}
-                            name={sensorTypeLabels[item.sensor.sensor_type]}
+                            name={sId}
                             stroke={CHART_COLORS[index % CHART_COLORS.length]}
                             strokeWidth={2}
                             dot={false}
@@ -732,11 +1035,110 @@ export default function StationDetail() {
                     }
                   </LineChart>
                 </ResponsiveContainer>
+              ) : activeTab === 'deviceStatus' && statusHistoryData.length > 0 && visibleStatusFields.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={statusHistoryData} margin={{ top: 5, right: 30, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.2} />
+                    <XAxis
+                      dataKey="time"
+                      minTickGap={30}
+                      tick={{ fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+
+                    {/* Status Timeline Y Axis */}
+                    <YAxis
+                      domain={[0, 13]}
+                      ticks={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}
+                      tick={{ fontSize: 9 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: 'Device Status', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'hsl(var(--muted-foreground))', fontSize: 10, opacity: 0.7 } }}
+                      tickFormatter={(value) => {
+                        const statusNames: Record<number, string> = {
+                          1: 'Ctrl Temp',
+                          2: 'Cbn RH',
+                          3: 'Cbn Temp',
+                          4: 'Chg A',
+                          5: 'Load V',
+                          6: 'Load A',
+                          7: 'Load W',
+                          8: 'PV A',
+                          9: 'PV V',
+                          10: 'Batt Temp',
+                          11: 'Batt Cap',
+                          12: 'Batt V',
+                        };
+                        return statusNames[value] || '';
+                      }}
+                    />
+
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: '0.5rem',
+                        fontSize: '12px'
+                      }}
+                      itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '0.5rem' }}
+                      formatter={(value: any, name: any, props: any) => {
+                        const fieldKey = name.split(' ')[0];
+                        const rawValue = props.payload[`${fieldKey}_raw`];
+                        const statusValue = value;
+                        
+                        const fieldUnits: Record<string, string> = {
+                          batt_v: 'V', batt_cap: '%', batt_temp_c: '°C',
+                          pv_v: 'V', pv_a: 'A',
+                          load_w: 'W', load_a: 'A', load_v: 'V', chg_a: 'A',
+                          cbn_temp_c: '°C', cbn_rh_pct: '%', ctrl_temp_c: '°C'
+                        };
+                        
+                        const unit = fieldUnits[fieldKey] || '';
+                        const isWorking = statusValue > 0;
+                        const status = isWorking ? '✓ ปกติ' : '✗ ผิดปกติ';
+                        return [`${rawValue?.toFixed(2) || '--'} ${unit} [${status}]`, name];
+                      }}
+                    />
+
+                    {[
+                      { key: 'batt_v', label: 'แรงดันแบตเตอรี่', color: '#2563eb' },
+                      { key: 'batt_cap', label: 'ความจุแบตเตอรี่', color: '#16a34a' },
+                      { key: 'batt_temp_c', label: 'อุณหภูมิแบตเตอรี่', color: '#dc2626' },
+                      { key: 'pv_v', label: 'แรงดันโซลาร์', color: '#f59e0b' },
+                      { key: 'pv_a', label: 'กระแสโซลาร์', color: '#f97316' },
+                      { key: 'load_w', label: 'กำลังโหลด', color: '#0891b2' },
+                      { key: 'load_a', label: 'กระแสโหลด', color: '#06b6d4' },
+                      { key: 'load_v', label: 'แรงดันโหลด', color: '#14b8a6' },
+                      { key: 'chg_a', label: 'กระแสชาร์จ', color: '#10b981' },
+                      { key: 'cbn_temp_c', label: 'อุณหภูมิตู้', color: '#d97706' },
+                      { key: 'cbn_rh_pct', label: 'ความชื้นในตู้', color: '#9333ea' },
+                      { key: 'ctrl_temp_c', label: 'อุณหภูมิ Controller', color: '#db2777' },
+                    ]
+                      .filter(field => visibleStatusFields.includes(field.key))
+                      .map(field => (
+                        <Line
+                          key={field.key}
+                          type="monotone"
+                          dataKey={field.key}
+                          name={field.key}
+                          stroke={field.color}
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                        />
+                      ))
+                    }
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                  <Activity className="h-10 w-10 mb-2 opacity-20" />
+                  {activeTab === 'sensors' ? <Activity className="h-10 w-10 mb-2 opacity-20" /> : <Zap className="h-10 w-10 mb-2 opacity-20" />}
                   <p>
-                    {visibleSensorIds.length === 0 ? 'Select sensors to view trends' : 'No historical data available for this period'}
+                    {activeTab === 'sensors' 
+                      ? (visibleSensorIds.length === 0 ? 'Select sensors to view trends' : 'No historical data available for this period')
+                      : (visibleStatusFields.length === 0 ? 'Select status fields to view trends' : 'No device status data available for this period')
+                    }
                   </p>
                 </div>
               )}

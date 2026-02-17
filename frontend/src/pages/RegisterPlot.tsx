@@ -78,41 +78,6 @@ function MapResizer({ isExpanded, mapPosition }: { isExpanded: boolean, mapPosit
   return null;
 }
 
-// Helper component to handle Ctrl key interactions
-function MapInteractionHandler() {
-  const map = useMap();
-
-  useEffect(() => {
-    // Disable interactions initially
-    map.dragging.disable();
-    map.scrollWheelZoom.disable();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        map.dragging.enable();
-        map.scrollWheelZoom.enable();
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        map.dragging.disable();
-        map.scrollWheelZoom.disable();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [map]);
-
-  return null;
-}
-
 function MapTools({ isExpanded, onToggleExpand }: { isExpanded: boolean, onToggleExpand: () => void }) {
   const map = useMap();
   const ref = useRef<HTMLDivElement>(null);
@@ -390,12 +355,10 @@ export default function RegisterPlot() {
                       center={[13.7563, 100.5018]}
                       zoom={6}
                       className="w-full h-full outline-none"
-                      scrollWheelZoom={false}
-                      dragging={false}
+                      scrollWheelZoom={true}
                       zoomControl={false}
                     >
                       <MapResizer isExpanded={false} mapPosition={mapPosition} />
-                      <MapInteractionHandler />
                       <MapTools isExpanded={false} onToggleExpand={() => setIsMapExpanded(true)} />
 
                       <LayersControl position="topleft">
