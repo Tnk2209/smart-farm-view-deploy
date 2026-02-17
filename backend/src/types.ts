@@ -140,7 +140,6 @@ export interface FarmPlot {
   updated_at: string;
 }
 
-<<<<<<< HEAD
 // Support Ticket (Helpdesk System)
 export interface SupportTicket {
   ticket_id: number;
@@ -163,15 +162,6 @@ export interface SupportTicket {
   station_name?: string;
   assignee_name?: string;
 }
-
-// Telemetry Message Structure (from IoT Device)
-=======
-// Telemetry Message Structure (from Real IoT Device - RDG0001)
-<<<<<<< HEAD
-// Can contain sensor data, status data, or both depending on MQTT topic
-=======
->>>>>>> 0bfea322ac6354b36c5124b1a4e314ba7032b469
->>>>>>> 7467294a8f496bc8291865bca46d23d3fd61c54b
 export interface TelemetryMessage {
   schema_ver?: string;
   site_id?: string;
