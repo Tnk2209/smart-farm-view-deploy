@@ -1,13 +1,15 @@
 import type { TelemetryMessage, SensorType } from '../types.js';
 import { TELEMETRY_FIELD_MAPPING } from '../types.js';
-import { 
+import {
   findStationByDeviceId,
   getSensorsByStationId,
   insertSensorData,
   getThresholdBySensorType,
   insertAlert,
-  findSensorByStationAndType
+  findSensorByStationAndType,
+  updateStationStatus
 } from '../database/queries.js';
+import type { StationStatus } from '../types.js';
 
 export interface ParsedSensorReading {
   sensorType: SensorType;
@@ -57,6 +59,7 @@ export async function processTelemetryMessage(
   try {
     // STEP 1: Find station by device_id
     const station = await findStationByDeviceId(telemetry.device_id);
+    let currentStationStatus: StationStatus = 'normal';
     if (!station) {
       return {
         success: false,
@@ -84,7 +87,7 @@ export async function processTelemetryMessage(
 
     for (const reading of readings) {
       const sensor = sensorMap.get(reading.sensorType);
-      
+
       if (!sensor) {
         errors.push(`Sensor type "${reading.sensorType}" not found for station ${station.station_id}`);
         continue;
@@ -101,24 +104,49 @@ export async function processTelemetryMessage(
 
         // Check threshold and create alert if violated
         const threshold = await getThresholdBySensorType(reading.sensorType);
+
+        // DEBUG LOG
+        // console.log(`[DEBUG] Checking threshold for ${reading.sensorType}: val=${reading.value}, th=${JSON.stringify(threshold)}`);
+
         if (threshold) {
-          const isViolation = 
-            reading.value < threshold.min_value || 
+          const isViolation =
+            reading.value < threshold.min_value ||
             reading.value > threshold.max_value;
 
           if (isViolation) {
-            const severity = 
-              reading.value < threshold.min_value * 0.8 || 
+            console.log(`[VIOLATION] ${reading.sensorType} value ${reading.value} out of range [${threshold.min_value}, ${threshold.max_value}]`);
+
+            let severity: 'low' | 'medium' | 'high' | 'critical' = 'high';
+
+            if (
+              reading.value < threshold.min_value * 0.6 ||
+              reading.value > threshold.max_value * 1.4
+            ) {
+              severity = 'critical';
+            } else if (
+              reading.value < threshold.min_value * 0.8 ||
               reading.value > threshold.max_value * 1.2
-                ? 'high'
-                : 'medium';
+            ) {
+              severity = 'high';
+            }
 
-            const message = 
+            // Update station status tracking
+            if (severity === 'critical') {
+              currentStationStatus = 'critical';
+            } else if (severity === 'high' || severity === 'medium') {
+              if (currentStationStatus !== 'critical') {
+                currentStationStatus = 'warning';
+              }
+            }
+
+            const message =
               reading.value < threshold.min_value
-                ? `${reading.sensorType} is below threshold (${reading.value} < ${threshold.min_value})`
-                : `${reading.sensorType} is above threshold (${reading.value} > ${threshold.max_value})`;
+                ? `${reading.sensorType} is below threshold (${reading.value.toFixed(1)} < ${threshold.min_value})`
+                : `${reading.sensorType} is above threshold (${reading.value.toFixed(1)} > ${threshold.max_value})`;
 
-            await insertAlert(
+            console.log(`[ALERT] Inserting alert: ${message} (Severity: ${severity})`);
+
+            const alert = await insertAlert(
               station.station_id,
               sensor.sensor_id,
               sensorData.data_id,
@@ -126,13 +154,27 @@ export async function processTelemetryMessage(
               message,
               severity
             );
-            alertsTriggered++;
-            console.log(`  ⚠️  Alert created: ${message}`);
+
+            if (alert) {
+              console.log(`  ✅ Alert inserted successfully: ID ${alert.alert_id}`);
+              alertsTriggered++;
+            } else {
+              console.log(`  ❌ Alert insertion returned null/undefined`);
+            }
           }
+        } else {
+          // console.log(`[DEBUG] No threshold found for ${reading.sensorType}`);
         }
       } catch (error) {
+        console.error(`Error processing ${reading.sensorType}:`, error);
         errors.push(`Error processing ${reading.sensorType}: ${error}`);
       }
+    }
+
+    // STEP 5: Update Station Status
+    if (station.status !== currentStationStatus) {
+      console.log(`  🔄 Updating station status: ${station.status} -> ${currentStationStatus}`);
+      await updateStationStatus(station.station_id, currentStationStatus);
     }
 
     return {

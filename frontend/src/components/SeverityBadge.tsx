@@ -12,12 +12,13 @@ export function SeverityBadge({ severity, size = 'default' }: SeverityBadgeProps
     low: { className: 'bg-chart-3/20 text-chart-3 border-chart-3/30', label: 'Low' },
     medium: { className: 'bg-chart-5/20 text-chart-5 border-chart-5/30', label: 'Medium' },
     high: { className: 'bg-destructive/20 text-destructive border-destructive/30', label: 'High' },
+    critical: { className: 'bg-destructive text-destructive-foreground border-destructive animate-pulse', label: 'Critical' },
   };
 
   const style = styles[severity];
 
   return (
-    <Badge 
+    <Badge
       variant="outline"
       className={cn(
         style.className,

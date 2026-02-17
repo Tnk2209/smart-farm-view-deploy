@@ -434,6 +434,25 @@ export const getAlerts = async (limit?: number): Promise<ApiResponse<Alert[]>> =
 };
 
 /**
+ * GET /api/alerts/station/{stationId}
+ * Get alerts for a specific station
+ */
+export const getAlertsByStationId = async (
+  stationId: number,
+  limit?: number
+): Promise<ApiResponse<Alert[]>> => {
+  try {
+    const query = limit ? `?limit=${limit}` : '';
+    return await apiFetch<ApiResponse<Alert[]>>(`/alerts/station/${stationId}${query}`);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch station alerts',
+    };
+  }
+};
+
+/**
  * GET /api/alerts/unacknowledged
  * Get unacknowledged alerts
  */

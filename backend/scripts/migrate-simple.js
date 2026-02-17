@@ -115,7 +115,7 @@ try {
       data_id BIGINT REFERENCES sensor_data(data_id),
       alert_type VARCHAR(50) NOT NULL,
       alert_message TEXT NOT NULL,
-      severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high')),
+      severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
       is_acknowledged BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

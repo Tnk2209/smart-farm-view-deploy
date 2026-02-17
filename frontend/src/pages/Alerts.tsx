@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getAlerts, acknowledgeAlert, getStations } from '@/lib/api';
+import { getAlerts, acknowledgeAlert, getStations, getAlertsByStationId } from '@/lib/api';
 import { Alert, Station } from '@/lib/types';
 import { SeverityBadge } from '@/components/SeverityBadge';
 import { SensorIcon, sensorTypeLabels } from '@/components/SensorIcon';
@@ -9,20 +9,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, Search, Check, Clock, Radio } from 'lucide-react';
@@ -30,23 +30,44 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AlertsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
-  const [stationFilter, setStationFilter] = useState<string>('all');
+  const [stationFilter, setStationFilter] = useState<string>(searchParams.get('station_id') || 'all');
   const [acknowledgedFilter, setAcknowledgedFilter] = useState<string>('all');
   const { toast } = useToast();
 
   useEffect(() => {
+    // Sync filter state with URL
+    const currentStationId = searchParams.get('station_id') || 'all';
+    setStationFilter(currentStationId);
+
     fetchData();
-  }, []);
+  }, [searchParams]);
+
+  const handleStationChange = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === 'all') {
+      newParams.delete('station_id');
+    } else {
+      newParams.set('station_id', value);
+    }
+    setSearchParams(newParams);
+  };
+  // ... existing code ...
+
 
   const fetchData = async () => {
     try {
+      const stationIdParam = searchParams.get('station_id');
+
       const [alertsRes, stationsRes] = await Promise.all([
-        getAlerts(),
+        stationIdParam
+          ? getAlertsByStationId(parseInt(stationIdParam), 100)
+          : getAlerts(100),
         getStations(),
       ]);
 
@@ -63,7 +84,7 @@ export default function AlertsPage() {
     try {
       const response = await acknowledgeAlert(alertId);
       if (response.success) {
-        setAlerts(prev => prev.map(a => 
+        setAlerts(prev => prev.map(a =>
           a.alert_id === alertId ? { ...a, is_acknowledged: true } : a
         ));
         toast({
@@ -81,13 +102,13 @@ export default function AlertsPage() {
   };
 
   const filteredAlerts = alerts.filter(alert => {
-    const matchesSearch = 
+    const matchesSearch =
       alert.alert_message.toLowerCase().includes(searchQuery.toLowerCase()) ||
       alert.station_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSeverity = severityFilter === 'all' || alert.severity === severityFilter;
     const matchesStation = stationFilter === 'all' || alert.station_id.toString() === stationFilter;
-    const matchesAcknowledged = 
-      acknowledgedFilter === 'all' || 
+    const matchesAcknowledged =
+      acknowledgedFilter === 'all' ||
       (acknowledgedFilter === 'yes' && alert.is_acknowledged) ||
       (acknowledgedFilter === 'no' && !alert.is_acknowledged);
     return matchesSearch && matchesSeverity && matchesStation && matchesAcknowledged;
@@ -143,12 +164,13 @@ export default function AlertsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Severity</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={stationFilter} onValueChange={setStationFilter}>
+              <Select value={stationFilter} onValueChange={handleStationChange}>
                 <SelectTrigger className="w-full lg:w-[200px]">
                   <SelectValue placeholder="Station" />
                 </SelectTrigger>
@@ -208,10 +230,10 @@ export default function AlertsPage() {
                     <TableRow key={alert.alert_id}>
                       <TableCell className="max-w-[300px]">
                         <div className="flex items-start gap-2">
-                          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${
-                            alert.severity === 'high' ? 'text-destructive' :
-                            alert.severity === 'medium' ? 'text-chart-4' : 'text-chart-3'
-                          }`} />
+                          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${alert.severity === 'critical' ? 'text-destructive animate-pulse' :
+                              alert.severity === 'high' ? 'text-destructive' :
+                                alert.severity === 'medium' ? 'text-chart-4' : 'text-chart-3'
+                            }`} />
                           <span className="text-sm truncate">{alert.alert_message}</span>
                         </div>
                       </TableCell>
@@ -219,7 +241,7 @@ export default function AlertsPage() {
                         <SeverityBadge severity={alert.severity} size="sm" />
                       </TableCell>
                       <TableCell>
-                        <Link 
+                        <Link
                           to={`/stations/${alert.station_id}`}
                           className="text-primary hover:underline flex items-center gap-1"
                         >
@@ -255,8 +277,8 @@ export default function AlertsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {!alert.is_acknowledged && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleAcknowledge(alert.alert_id)}
                           >

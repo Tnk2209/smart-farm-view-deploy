@@ -31,6 +31,7 @@ export interface Station {
   status: 'normal' | 'warning' | 'critical' | 'offline';
   created_at: string;
   sensor_count?: number;
+  alert_count?: number;
   last_active?: string;
 }
 
@@ -52,7 +53,7 @@ export interface SensorData {
   unit?: string;
 }
 
-export type AlertSeverity = 'low' | 'medium' | 'high';
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Alert {
   alert_id: number;

@@ -209,6 +209,7 @@ export default function StationsList() {
                   <TableHead>Station Name</TableHead>
                   <TableHead>Province</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Alerts</TableHead>
                   <TableHead>Sensors</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -217,7 +218,7 @@ export default function StationsList() {
               <TableBody>
                 {paginatedStations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No stations found
                     </TableCell>
                   </TableRow>
@@ -230,6 +231,15 @@ export default function StationsList() {
                       <TableCell>{station.province}</TableCell>
                       <TableCell>
                         <StatusBadge status={calculateStatus(station)} size="sm" />
+                      </TableCell>
+                      <TableCell>
+                        {station.alert_count && station.alert_count > 0 ? (
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">
+                            {station.alert_count}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
                       </TableCell>
                       <TableCell>{station.sensor_count || 0}</TableCell>
                       <TableCell>

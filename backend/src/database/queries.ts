@@ -17,6 +17,7 @@ export async function getAllStations(): Promise<Station[]> {
   const result = await pool.query<Station>(
     `SELECT *, 
       (SELECT COUNT(*)::int FROM sensor WHERE sensor.station_id = station.station_id) as sensor_count,
+      (SELECT COUNT(*)::int FROM alert WHERE alert.station_id = station.station_id AND alert.is_acknowledged = FALSE) as alert_count,
       (SELECT MAX(sd.recorded_at) 
        FROM sensor_data sd 
        JOIN sensor s ON sd.sensor_id = s.sensor_id 
@@ -304,24 +305,25 @@ export async function insertAlert(
 
 export async function getAlertsByStationId(
   stationId: number,
-  limit: number = 50
 ): Promise<Alert[]> {
   const result = await pool.query<Alert>(
-    `SELECT * FROM alert 
-     WHERE station_id = $1 
-     ORDER BY created_at DESC 
-     LIMIT $2`,
-    [stationId, limit]
+    `SELECT a.*, s.station_name, se.sensor_type FROM alert a
+     JOIN station s ON a.station_id = s.station_id
+     JOIN sensor se ON a.sensor_id = se.sensor_id
+     WHERE a.station_id = $1 
+     ORDER BY a.created_at DESC `,
+    [stationId]
   );
   return result.rows;
 }
 
-export async function getRecentAlerts(limit: number = 50): Promise<Alert[]> {
+export async function getRecentAlerts(): Promise<Alert[]> {
   const result = await pool.query<Alert>(
-    `SELECT * FROM alert 
-     ORDER BY created_at DESC 
-     LIMIT $1`,
-    [limit]
+    `SELECT a.*, s.station_name, se.sensor_type FROM alert a
+     JOIN station s ON a.station_id = s.station_id
+     JOIN sensor se ON a.sensor_id = se.sensor_id
+     ORDER BY a.created_at DESC `,
+    []
   );
   return result.rows;
 }

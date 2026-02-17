@@ -1,7 +1,7 @@
 // Type definitions based on ERD and telemetry structure
 
 export type UserRole = 'USER' | 'MANAGER' | 'SUPER_USER';
-export type AlertSeverity = 'low' | 'medium' | 'high';
+export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type StationStatus = 'normal' | 'warning' | 'critical' | 'offline';
 export type SensorStatus = 'active' | 'inactive' | 'error';
 
@@ -29,6 +29,9 @@ export interface Station {
   longitude: number;
   status: StationStatus;
   created_at: string;
+  sensor_count?: number;
+  alert_count?: number;
+  last_active?: string;
 }
 
 export interface Sensor {

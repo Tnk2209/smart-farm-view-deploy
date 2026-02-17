@@ -318,7 +318,7 @@ export default function RiskDashboard() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <IconComponent className={`h-5 w-5 ${config.color}`} />
-                        <CardTitle className="text-lg">{config.title}</CardTitle>
+                        <CardTitle className="text-lg dark:text-black">{config.title}</CardTitle>
                       </div>
                       <span className="text-2xl">{getRiskIcon(data.risk_level)}</span>
                     </div>

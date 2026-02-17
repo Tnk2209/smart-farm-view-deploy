@@ -1,31 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { getSensorById, getSensorData, getThresholds, getStationById } from '@/lib/api';
-import { Sensor, SensorData, Threshold, Station } from '@/lib/types';
+import { getSensorById, getSensorData, getThresholds, getStationById, getAlertsByStationId } from '@/lib/api';
+import { Sensor, SensorData, Threshold, Station, Alert } from '@/lib/types';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SensorIcon, sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Thermometer, ArrowLeft, Calendar, TrendingUp, TrendingDown, 
-  Minus, Radio
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Thermometer, ArrowLeft, Calendar, TrendingUp, TrendingDown,
+  Minus, Radio, AlertTriangle, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { 
-  ChartContainer, 
-  ChartTooltip, 
+import {
+  ChartContainer,
+  ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig 
+  type ChartConfig
 } from '@/components/ui/chart';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  ResponsiveContainer, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
   ReferenceLine,
   Area,
   ComposedChart
@@ -43,14 +43,13 @@ export default function SensorDetail() {
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
   const [threshold, setThreshold] = useState<Threshold | null>(null);
   const [station, setStation] = useState<Station | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [, setUpdateTrigger] = useState(0);
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '12h' | '24h' | '7d' | '30d'>('12h');
+  const [timeRange, setTimeRange] = useState<string>('24h');
 
   // Auto-refresh for live data
   useEffect(() => {
     const interval = setInterval(() => {
-      setUpdateTrigger(prev => prev + 1);
       // Refetch sensor data
       if (id) {
         const now = new Date();
@@ -60,7 +59,7 @@ export default function SensorDetail() {
         });
       }
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, [id]);
 
@@ -80,11 +79,21 @@ export default function SensorDetail() {
 
         if (sensorRes.success && sensorRes.data) {
           setSensor(sensorRes.data);
-          
-          // Fetch station info
-          const stationRes = await getStationById(sensorRes.data.station_id);
+
+          // Fetch station info and alerts
+          const [stationRes, alertsRes] = await Promise.all([
+            getStationById(sensorRes.data.station_id),
+            getAlertsByStationId(sensorRes.data.station_id, 100) // Fetch last 100 alerts to filter
+          ]);
+
           if (stationRes.success && stationRes.data) {
             setStation(stationRes.data);
+          }
+
+          if (alertsRes.success && alertsRes.data) {
+            // Filter alerts for this sensor
+            const sensorAlerts = alertsRes.data.filter(a => a.sensor_id === sensorId);
+            setAlerts(sensorAlerts);
           }
 
           // Find matching threshold
@@ -155,15 +164,18 @@ export default function SensorDetail() {
   // Filter data based on selected time range
   const getDataForTimeRange = () => {
     const now = Date.now();
-    const timeRanges = {
+    const timeRanges: Record<string, number> = {
+      '30m': 30 * 60 * 1000,
       '1h': 60 * 60 * 1000,
+      '3h': 3 * 60 * 60 * 1000,
       '6h': 6 * 60 * 60 * 1000,
-      '12h': 12 * 60 * 60 * 1000,
       '24h': 24 * 60 * 60 * 1000,
+      '3d': 3 * 24 * 60 * 60 * 1000,
       '7d': 7 * 24 * 60 * 60 * 1000,
+      '14d': 14 * 24 * 60 * 60 * 1000,
       '30d': 30 * 24 * 60 * 60 * 1000,
     };
-    
+
     const cutoffTime = now - timeRanges[timeRange];
     return sensorData.filter(d => new Date(d.recorded_at).getTime() >= cutoffTime);
   };
@@ -174,18 +186,21 @@ export default function SensorDetail() {
   const getChartData = () => {
     const data = filteredData;
     let samplingRate = 1;
-    
+
     // Adjust sampling based on time range to keep chart readable
-    if (timeRange === '7d') samplingRate = 20;
-    else if (timeRange === '30d') samplingRate = 60;
+    if (timeRange === '30d') samplingRate = 60;
+    else if (timeRange === '14d') samplingRate = 30;
+    else if (timeRange === '7d') samplingRate = 20;
+    else if (timeRange === '3d') samplingRate = 10;
     else if (timeRange === '24h') samplingRate = 4;
-    else if (timeRange === '12h') samplingRate = 2;
-    
+    else if (timeRange === '12h') samplingRate = 2; // Legacy support
+
+
     return data
       .filter((_, index) => index % samplingRate === 0)
       .map(d => ({
-        time: format(new Date(d.recorded_at), 
-          timeRange === '7d' || timeRange === '30d' ? 'MMM d' : 'HH:mm'
+        time: format(new Date(d.recorded_at),
+          ['3d', '7d', '14d', '30d'].includes(timeRange) ? 'MMM d' : 'HH:mm'
         ),
         value: d.value,
         fullTime: format(new Date(d.recorded_at), 'MMM d, HH:mm'),
@@ -195,12 +210,16 @@ export default function SensorDetail() {
   const chartData = getChartData();
 
   // Time range labels
-  const timeRangeLabels = {
-    '1h': 'Last Hour',
+  const timeRangeLabels: Record<string, string> = {
+    '30m': 'Last 30 Minutes',
+    '1h': 'Last 1 Hour',
+    '3h': 'Last 3 Hours',
     '6h': 'Last 6 Hours',
     '12h': 'Last 12 Hours',
     '24h': 'Last 24 Hours',
+    '3d': 'Last 3 Days',
     '7d': 'Last 7 Days',
+    '14d': 'Last 14 Days',
     '30d': 'Last 30 Days',
   };
 
@@ -244,7 +263,7 @@ export default function SensorDetail() {
         {station && (
           <Card>
             <CardContent className="py-4">
-              <Link 
+              <Link
                 to={`/stations/${station.station_id}`}
                 className="flex items-center gap-3 hover:text-primary transition-colors"
               >
@@ -336,52 +355,58 @@ export default function SensorDetail() {
                   )}
                 </CardDescription>
               </div>
-              <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as typeof timeRange)}>
-                <TabsList className="grid grid-cols-3 lg:grid-cols-6">
-                  <TabsTrigger value="1h" className="text-xs">1H</TabsTrigger>
-                  <TabsTrigger value="6h" className="text-xs">6H</TabsTrigger>
-                  <TabsTrigger value="12h" className="text-xs">12H</TabsTrigger>
-                  <TabsTrigger value="24h" className="text-xs">24H</TabsTrigger>
-                  <TabsTrigger value="7d" className="text-xs">7D</TabsTrigger>
-                  <TabsTrigger value="30d" className="text-xs">30D</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30m">Last 30 Minutes</SelectItem>
+                  <SelectItem value="1h">Last 1 Hour</SelectItem>
+                  <SelectItem value="3h">Last 3 Hours</SelectItem>
+                  <SelectItem value="6h">Last 6 Hours</SelectItem>
+                  <SelectItem value="24h">Last 24 Hours</SelectItem>
+                  <SelectItem value="3d">Last 3 Days</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                  <SelectItem value="14d">Last 14 Days</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
             <ChartContainer config={chartConfig} className="h-[400px] w-full">
-              <ComposedChart 
+              <ComposedChart
                 data={chartData}
                 margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
               >
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <XAxis 
-                  dataKey="time" 
+                <XAxis
+                  dataKey="time"
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
                   tickMargin={8}
                   minTickGap={30}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
                   tickMargin={8}
                   domain={['dataMin - 5', 'dataMax + 5']}
-                  label={{ 
-                    value: unit, 
-                    angle: -90, 
+                  label={{
+                    value: unit,
+                    angle: -90,
                     position: 'insideLeft',
                     style: { fontSize: 11, fill: 'hsl(var(--muted-foreground))' }
                   }}
                 />
-                <ChartTooltip 
+                <ChartTooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
@@ -402,12 +427,12 @@ export default function SensorDetail() {
                 />
                 {threshold && (
                   <>
-                    <ReferenceLine 
-                      y={threshold.max_value} 
-                      stroke="hsl(var(--destructive))" 
+                    <ReferenceLine
+                      y={threshold.max_value}
+                      stroke="hsl(var(--destructive))"
                       strokeWidth={2}
                       strokeDasharray="8 4"
-                      label={{ 
+                      label={{
                         value: `Max ${threshold.max_value}`,
                         position: 'insideTopRight',
                         fontSize: 11,
@@ -415,12 +440,12 @@ export default function SensorDetail() {
                         fontWeight: 600
                       }}
                     />
-                    <ReferenceLine 
-                      y={threshold.min_value} 
-                      stroke="hsl(var(--chart-4))" 
+                    <ReferenceLine
+                      y={threshold.min_value}
+                      stroke="hsl(var(--chart-4))"
                       strokeWidth={2}
                       strokeDasharray="8 4"
-                      label={{ 
+                      label={{
                         value: `Min ${threshold.min_value}`,
                         position: 'insideBottomRight',
                         fontSize: 11,
@@ -437,14 +462,14 @@ export default function SensorDetail() {
                   stroke="none"
                   animationDuration={800}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
+                <Line
+                  type="monotone"
+                  dataKey="value"
                   stroke="hsl(var(--primary))"
                   strokeWidth={3}
                   dot={false}
-                  activeDot={{ 
-                    r: 6, 
+                  activeDot={{
+                    r: 6,
                     fill: 'hsl(var(--primary))',
                     stroke: 'hsl(var(--background))',
                     strokeWidth: 2
@@ -454,6 +479,62 @@ export default function SensorDetail() {
                 />
               </ComposedChart>
             </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Recent Alerts */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Alerts</CardTitle>
+            <CardDescription>
+              History of alerts generated by this sensor
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {alerts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                <CheckCircle className="h-8 w-8 mb-2 text-green-500/50" />
+                <p>No recent alerts found for this sensor</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {alerts.slice(0, 5).map((alert) => (
+                  <div
+                    key={alert.alert_id}
+                    className={`flex items-start gap-4 p-4 rounded-lg border ${alert.severity === 'critical' ? 'bg-destructive/10 border-destructive/20' :
+                      alert.severity === 'high' ? 'bg-orange-500/10 border-orange-500/20' :
+                        alert.severity === 'medium' ? 'bg-yellow-500/10 border-yellow-500/20' :
+                          'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                      }`}
+                  >
+                    <div className={`mt-0.5 ${alert.severity === 'critical' ? 'text-destructive' :
+                      alert.severity === 'high' ? 'text-orange-600' :
+                        alert.severity === 'medium' ? 'text-yellow-600' :
+                          'text-slate-600'
+                      }`}>
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-semibold">{alert.alert_type}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(alert.created_at), 'PPp')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {alert.alert_message}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <StatusBadge status={alert.severity === 'critical' || alert.severity === 'high' ? 'critical' : alert.severity === 'medium' ? 'warning' : 'normal'} size="sm" />
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {alert.severity} Severity
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -486,6 +567,6 @@ export default function SensorDetail() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 }
