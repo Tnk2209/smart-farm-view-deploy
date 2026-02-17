@@ -373,8 +373,8 @@ export async function acknowledgeAlert(alertId: number): Promise<void> {
 export async function getUserByUsername(username: string): Promise<User | null> {
   const result = await pool.query<User>(
     `SELECT u.*, r.role_name as role 
-     FROM "User" u 
-     JOIN "Role" r ON u.role_id = r.role_id 
+     FROM "user" u 
+     JOIN "role" r ON u.role_id = r.role_id 
      WHERE u.username = $1`,
     [username]
   );
@@ -384,8 +384,8 @@ export async function getUserByUsername(username: string): Promise<User | null> 
 export async function getUserById(userId: number): Promise<User | null> {
   const result = await pool.query<User>(
     `SELECT u.*, r.role_name as role 
-     FROM "User" u 
-     JOIN "Role" r ON u.role_id = r.role_id 
+     FROM "user" u 
+     JOIN "role" r ON u.role_id = r.role_id 
      WHERE u.user_id = $1`,
     [userId]
   );
@@ -395,8 +395,8 @@ export async function getUserById(userId: number): Promise<User | null> {
 export async function getAllUsers(): Promise<User[]> {
   const result = await pool.query<User>(
     `SELECT u.*, r.role_name as role 
-     FROM "User" u 
-     JOIN "Role" r ON u.role_id = r.role_id 
+     FROM "user" u 
+     JOIN "role" r ON u.role_id = r.role_id 
      ORDER BY u.username`
   );
   return result.rows;
@@ -413,7 +413,7 @@ export async function createUser(
   phoneNumber?: string
 ): Promise<User> {
   const result = await pool.query<User>(
-    `INSERT INTO "User" (username, password_hash, email, role_id, first_name, last_name, national_id, phone_number, status) 
+    `INSERT INTO "user" (username, password_hash, email, role_id, first_name, last_name, national_id, phone_number, status) 
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active') 
      RETURNING *`,
     [username, passwordHash, email, roleId, firstName || null, lastName || null, nationalId || null, phoneNumber || null]
@@ -434,7 +434,7 @@ export async function updateUser(
   phoneNumber?: string
 ): Promise<User | null> {
   const result = await pool.query<User>(
-    `UPDATE "User" 
+    `UPDATE "user" 
      SET username = $1, email = $2, role_id = $3, status = $4, 
          first_name = $5, last_name = $6, national_id = $7, phone_number = $8
      WHERE user_id = $9 
@@ -449,7 +449,7 @@ export async function updateUserPassword(
   passwordHash: string
 ): Promise<void> {
   await pool.query(
-    'UPDATE "User" SET password_hash = $1 WHERE user_id = $2',
+    'UPDATE "user" SET password_hash = $1 WHERE user_id = $2',
     [passwordHash, userId]
   );
 }
@@ -458,14 +458,14 @@ export async function updateUserPassword(
 
 export async function getAllRoles(): Promise<Role[]> {
   const result = await pool.query<Role>(
-    'SELECT * FROM "Role" ORDER BY role_id'
+    'SELECT * FROM "role" ORDER BY role_id'
   );
   return result.rows;
 }
 
 export async function getRoleById(roleId: number): Promise<Role | null> {
   const result = await pool.query<Role>(
-    'SELECT * FROM "Role" WHERE role_id = $1',
+    'SELECT * FROM "role" WHERE role_id = $1',
     [roleId]
   );
   return result.rows[0] || null;

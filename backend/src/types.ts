@@ -6,18 +6,26 @@ export type StationStatus = 'normal' | 'warning' | 'critical' | 'offline';
 export type SensorStatus = 'active' | 'inactive' | 'error';
 
 export type SensorType =
-  | 'wind_speed'
-  | 'air_temperature'
-  | 'air_humidity'
-  | 'air_pressure'
-  | 'rainfall'
-  | 'soil_moisture'
-  | 'soil_temperature'
-  | 'cabinet_temperature'
-  | 'cabinet_humidity'
-  | 'solar_voltage'
-  | 'battery_voltage'
-  | 'gate_door';
+  | 'wind_speed_ms'
+  | 'air_temp_c'
+  | 'air_rh_pct'
+  | 'air_pressure_kpa'
+  | 'rain_rate_mmph'
+  | 'rain_mm'
+  | 'soil_rh_pct'
+  | 'soil_temp_c'
+  | 'cbn_rh_pct'
+  | 'cbn_temp_c'
+  | 'ctrl_temp_c'
+  | 'batt_temp_c'
+  | 'pv_a'
+  | 'pv_v'
+  | 'load_w'
+  | 'chg_a'
+  | 'load_a'
+  | 'load_v'
+  | 'batt_cap'
+  | 'batt_v';
 
 // Database Models
 export interface Station {
@@ -106,6 +114,7 @@ export interface FarmPlot {
   updated_at: string;
 }
 
+<<<<<<< HEAD
 // Support Ticket (Helpdesk System)
 export interface SupportTicket {
   ticket_id: number;
@@ -130,44 +139,68 @@ export interface SupportTicket {
 }
 
 // Telemetry Message Structure (from IoT Device)
+=======
+// Telemetry Message Structure (from Real IoT Device - RDG0001)
+>>>>>>> 0bfea322ac6354b36c5124b1a4e314ba7032b469
 export interface TelemetryMessage {
+  schema_ver?: string;
+  site_id?: string;
   device_id: string;
   ts: string; // ISO 8601 timestamp
-  boot_id: number;
+  boot_id: string | number;
   seq: number;
   msg_id: string;
   data: {
+    // Weather sensors (from telemetry topic)
     wind_speed_ms?: number;
     air_temp_c?: number;
     air_rh_pct?: number;
-    air_pressure_hpa?: number;
+    air_pressure_kpa?: number;
     rain_rate_mmph?: number;
-    soil_moisture_pct?: number;
+    rain_mm?: number;
+    soil_rh_pct?: number;
     soil_temp_c?: number;
-    cabinet_temp_c?: number;
-    cabinet_rh_pct?: number;
-    solar_v?: number;
-    battery_v?: number;
-    gate_door?: number;
+    // Power/Cabinet sensors (from status topic)
+    cbn_rh_pct?: number;
+    cbn_temp_c?: number;
+    ctrl_temp_c?: number;
+    batt_temp_c?: number;
+    pv_a?: number;
+    pv_v?: number;
+    load_w?: number;
+    chg_a?: number;
+    load_a?: number;
+    load_v?: number;
+    batt_cap?: number;
+    batt_v?: number;
   };
   sim_serial?: string;
   sim_rssi?: number;
 }
 
 // Field Mapping for Telemetry → Sensor Type
+// (Identity mapping since SensorType now matches field names)
 export const TELEMETRY_FIELD_MAPPING: Record<string, SensorType> = {
-  wind_speed_ms: 'wind_speed',
-  air_temp_c: 'air_temperature',
-  air_rh_pct: 'air_humidity',
-  air_pressure_hpa: 'air_pressure',
-  rain_rate_mmph: 'rainfall',
-  soil_moisture_pct: 'soil_moisture',
-  soil_temp_c: 'soil_temperature',
-  cabinet_temp_c: 'cabinet_temperature',
-  cabinet_rh_pct: 'cabinet_humidity',
-  solar_v: 'solar_voltage',
-  battery_v: 'battery_voltage',
-  gate_door: 'gate_door',
+  wind_speed_ms: 'wind_speed_ms',
+  air_temp_c: 'air_temp_c',
+  air_rh_pct: 'air_rh_pct',
+  air_pressure_kpa: 'air_pressure_kpa',
+  rain_rate_mmph: 'rain_rate_mmph',
+  rain_mm: 'rain_mm',
+  soil_rh_pct: 'soil_rh_pct',
+  soil_temp_c: 'soil_temp_c',
+  cbn_rh_pct: 'cbn_rh_pct',
+  cbn_temp_c: 'cbn_temp_c',
+  ctrl_temp_c: 'ctrl_temp_c',
+  batt_temp_c: 'batt_temp_c',
+  pv_a: 'pv_a',
+  pv_v: 'pv_v',
+  load_w: 'load_w',
+  chg_a: 'chg_a',
+  load_a: 'load_a',
+  load_v: 'load_v',
+  batt_cap: 'batt_cap',
+  batt_v: 'batt_v',
 };
 
 // API Response Types
@@ -186,18 +219,26 @@ export interface TelemetryIngestResponse {
   station_id: number;
 }
 
-// Sensor Unit Mapping
+// Sensor Unit Mapping (matching real MQTT payload fields)
 export const SENSOR_UNITS: Record<SensorType, string> = {
-  wind_speed: 'm/s',
-  air_temperature: '°C',
-  air_humidity: '%',
-  air_pressure: 'hPa',
-  rainfall: 'mm/h',
-  soil_moisture: '%',
-  soil_temperature: '°C',
-  cabinet_temperature: '°C',
-  cabinet_humidity: '%',
-  solar_voltage: 'V',
-  battery_voltage: 'V',
-  gate_door: '',
+  wind_speed_ms: 'm/s',
+  air_temp_c: '°C',
+  air_rh_pct: '%',
+  air_pressure_kpa: 'kPa',
+  rain_rate_mmph: 'mm/h',
+  rain_mm: 'mm',
+  soil_rh_pct: '%',
+  soil_temp_c: '°C',
+  cbn_rh_pct: '%',
+  cbn_temp_c: '°C',
+  ctrl_temp_c: '°C',
+  batt_temp_c: '°C',
+  pv_a: 'A',
+  pv_v: 'V',
+  load_w: 'W',
+  chg_a: 'A',
+  load_a: 'A',
+  load_v: 'V',
+  batt_cap: '%',
+  batt_v: 'V',
 };

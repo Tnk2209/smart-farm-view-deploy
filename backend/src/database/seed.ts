@@ -47,29 +47,15 @@ export async function seedDatabase() {
     console.log(`✅ ${users.length} demo users inserted`);
     console.log('   📌 All demo users use password: "demo123"\n');
 
-    // 3. Insert Sample Stations (3 stations for demo)
+    // 3. Insert Sample Stations (Real device from site RDS0001)
     console.log('📝 Inserting sample stations...');
     const stations = [
       {
-        device_id: 'IG502-ABC123',
-        name: 'Chiang Mai Agricultural Station',
-        province: 'Chiang Mai',
-        lat: 18.7883,
-        lng: 98.9853,
-      },
-      {
-        device_id: 'IG502-DEF456',
-        name: 'Nakhon Ratchasima Research Station',
-        province: 'Nakhon Ratchasima',
-        lat: 14.9799,
-        lng: 102.0977,
-      },
-      {
-        device_id: 'IG502-GHI789',
-        name: 'Ubon Ratchathani Farm Station',
-        province: 'Ubon Ratchathani',
-        lat: 15.2287,
-        lng: 104.8564,
+        device_id: 'RDG0001',
+        name: 'RDS0001 - Studio 1.0.6 Park Station',
+        province: 'Bangkok',
+        lat: 13.99185719909398,
+        lng: 100.54287798095395,
       },
     ];
 
@@ -83,21 +69,29 @@ export async function seedDatabase() {
     }
     console.log(`✅ ${stations.length} stations inserted\n`);
 
-    // 4. Insert Sensors for each station
+    // 4. Insert Sensors for each station (matching real MQTT payload)
     console.log('📝 Inserting sensors...');
     const sensorTypes: SensorType[] = [
-      'wind_speed',
-      'air_temperature',
-      'air_humidity',
-      'air_pressure',
-      'rainfall',
-      'soil_moisture',
-      'soil_temperature',
-      'cabinet_temperature',
-      'cabinet_humidity',
-      'solar_voltage',
-      'battery_voltage',
-      'gate_door',
+      'wind_speed_ms',
+      'air_temp_c',
+      'air_rh_pct',
+      'air_pressure_kpa',
+      'rain_rate_mmph',
+      'rain_mm',
+      'soil_rh_pct',
+      'soil_temp_c',
+      'cbn_rh_pct',
+      'cbn_temp_c',
+      'ctrl_temp_c',
+      'batt_temp_c',
+      'pv_a',
+      'pv_v',
+      'load_w',
+      'chg_a',
+      'load_a',
+      'load_v',
+      'batt_cap',
+      'batt_v',
     ];
 
     const stationResult = await client.query('SELECT station_id FROM station');
@@ -117,21 +111,29 @@ export async function seedDatabase() {
     }
     console.log(`✅ ${sensorCount} sensors inserted\n`);
 
-    // 5. Insert Thresholds
+    // 5. Insert Thresholds (matching real MQTT payload fields)
     console.log('📝 Inserting thresholds...');
     const thresholds = [
-      { type: 'wind_speed', min: 0, max: 25 },
-      { type: 'air_temperature', min: 15, max: 35 },
-      { type: 'air_humidity', min: 30, max: 85 },
-      { type: 'air_pressure', min: 990, max: 1020 },
-      { type: 'rainfall', min: 0, max: 40 },
-      { type: 'soil_moisture', min: 25, max: 75 },
-      { type: 'soil_temperature', min: 20, max: 32 },
-      { type: 'cabinet_temperature', min: 20, max: 45 },
-      { type: 'cabinet_humidity', min: 35, max: 65 },
-      { type: 'solar_voltage', min: 12, max: 24 },
-      { type: 'battery_voltage', min: 11.5, max: 13.5 },
-      { type: 'gate_door', min: 0, max: 1 },
+      { type: 'wind_speed_ms', min: 0, max: 25 },
+      { type: 'air_temp_c', min: 15, max: 40 },
+      { type: 'air_rh_pct', min: 20, max: 95 },
+      { type: 'air_pressure_kpa', min: 95, max: 105 },
+      { type: 'rain_rate_mmph', min: 0, max: 50 },
+      { type: 'rain_mm', min: 0, max: 500 },
+      { type: 'soil_rh_pct', min: 20, max: 80 },
+      { type: 'soil_temp_c', min: 15, max: 35 },
+      { type: 'cbn_rh_pct', min: 30, max: 70 },
+      { type: 'cbn_temp_c', min: 20, max: 45 },
+      { type: 'ctrl_temp_c', min: 20, max: 45 },
+      { type: 'batt_temp_c', min: 15, max: 40 },
+      { type: 'pv_a', min: 0, max: 20 },
+      { type: 'pv_v', min: 0, max: 30 },
+      { type: 'load_w', min: 0, max: 500 },
+      { type: 'chg_a', min: 0, max: 20 },
+      { type: 'load_a', min: 0, max: 20 },
+      { type: 'load_v', min: 11, max: 15 },
+      { type: 'batt_cap', min: 20, max: 100 },
+      { type: 'batt_v', min: 11.5, max: 14.5 },
     ];
 
     for (const threshold of thresholds) {
@@ -160,7 +162,6 @@ export async function seedDatabase() {
 }
 
 // Run seeding if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('🚀 Starting seed process...\n');
   seedDatabase()
     .then(() => {
@@ -172,4 +173,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.error(error);
       process.exit(1);
     });
-}

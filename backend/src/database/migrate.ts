@@ -1,6 +1,4 @@
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('📂 migrate.ts file loaded successfully');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
 
 import { pool } from './connection.js';
 
@@ -23,19 +21,23 @@ export async function runMigrations() {
     `);
     console.log('✅ Table "Role" created');
 
-    // Create User table
+    // Create user table
     await client.query(`
-      CREATE TABLE IF NOT EXISTS "User" (
+      CREATE TABLE IF NOT EXISTS "user" (
         user_id SERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         email VARCHAR(100) UNIQUE NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        national_id VARCHAR(20),
+        phone_number VARCHAR(20),
         role_id INTEGER NOT NULL REFERENCES Role(role_id),
         status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✅ Table "User" created');
+    console.log('✅ Table "user" created');
 
     // Create station table (lowercase)
     await client.query(`
@@ -90,7 +92,7 @@ export async function runMigrations() {
         sensor_type VARCHAR(50) UNIQUE NOT NULL,
         min_value FLOAT NOT NULL,
         max_value FLOAT NOT NULL,
-        created_by INTEGER REFERENCES "User"(user_id),
+        created_by INTEGER REFERENCES "user"(user_id),
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CHECK (min_value < max_value)
       )
@@ -106,7 +108,7 @@ export async function runMigrations() {
         data_id BIGINT REFERENCES sensor_data(data_id),
         alert_type VARCHAR(50) NOT NULL,
         alert_message TEXT NOT NULL,
-        severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high')),
+        severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
         is_acknowledged BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -124,7 +126,7 @@ export async function runMigrations() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS farm_plot (
         plot_id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES "User"(user_id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
         lat DOUBLE PRECISION NOT NULL,
         lon DOUBLE PRECISION NOT NULL,
         utm_coords VARCHAR(50),
@@ -159,7 +161,6 @@ export async function runMigrations() {
 }
 
 // Run migrations if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('🚀 Starting migration process...\n');
   runMigrations()
     .then(() => {
@@ -171,4 +172,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.error(error);
       process.exit(1);
     });
-}
+
