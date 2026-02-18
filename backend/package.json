@@ -4,8 +4,11 @@
   "description": "Smart Farm Backend with MQTT and REST API",
   "main": "dist/server.js",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "dev": "npm run db:seed && tsx watch src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "db:migrate": "tsx src/database/migrate.ts",

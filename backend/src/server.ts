@@ -14,7 +14,7 @@ import alertsRouter from './routes/alerts.js';
 import thresholdsRouter from './routes/thresholds.js';
 import plotsRouter from './routes/plots.js';
 import diseaseRiskRouter from './routes/diseaseRisk.js';
-import riskRouter from './routes/risk.js';
+// import riskRouter from './routes/risk.js';
 import lockControlRouter from './routes/lockControl.js';
 import stationStatusRouter from './routes/stationStatus.js';
 import ticketsRouter from './routes/tickets.js';
@@ -65,7 +65,7 @@ app.use(`${config.apiPrefix}/alerts`, alertsRouter);
 app.use(`${config.apiPrefix}/thresholds`, thresholdsRouter);
 app.use(`${config.apiPrefix}/plots`, plotsRouter);
 app.use(`${config.apiPrefix}/disease-risk`, diseaseRiskRouter);
-app.use(`${config.apiPrefix}/risk`, riskRouter);
+// app.use(`${config.apiPrefix}/risk`, riskRouter);
 app.use(`${config.apiPrefix}/stations`, lockControlRouter);
 app.use(`${config.apiPrefix}/tickets`, ticketsRouter);
 

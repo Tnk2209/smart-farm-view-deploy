@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('token');
+    return localStorage.getItem('smart_farm_token');
   });
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
