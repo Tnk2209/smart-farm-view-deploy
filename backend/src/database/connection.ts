@@ -5,7 +5,6 @@ import { URL } from 'url';
 import { config } from '../config.js';
 
 const { Pool } = pg;
-const resolve4 = promisify(dns.resolve4);
 
 let internalPool: pg.Pool | null = null;
 
@@ -16,19 +15,20 @@ export async function initDatabase(): Promise<boolean> {
 
     if (config.database.connectionString) {
       // Force IPv4 if using connection string
-      console.log('🔄 Resolving database host to IPv4...');
+      console.log('🔄 Resolving database host to IPv4 using dns.lookup...');
       try {
         const url = new URL(config.database.connectionString);
         const originalHost = url.hostname;
 
-        // Resolve hostname to IPv4
-        const ipAddresses = await resolve4(originalHost);
-        if (ipAddresses && ipAddresses.length > 0) {
-          const ipv4 = ipAddresses[0];
-          console.log(`✅ Resolved ${originalHost} to IPv4: ${ipv4}`);
+        // Resolve hostname to IPv4 using dns.lookup (uses OS resolver, handles CNAMEs)
+        const lookup = promisify(dns.lookup);
+        const { address } = await lookup(originalHost, { family: 4 });
+
+        if (address) {
+          console.log(`✅ Resolved ${originalHost} to IPv4: ${address}`);
 
           // Replace hostname with IPv4 in connection string
-          url.hostname = ipv4;
+          url.hostname = address;
           poolConfig = {
             connectionString: url.toString(),
             ssl: { rejectUnauthorized: false }, // Render/Supabase often require this
@@ -128,9 +128,8 @@ export async function withTransaction<T>(
   }
 }
 
-// Backward compatibility exports (no-op or warnings)
+// Backward compatibility exports (no-op)
 export async function testConnection(): Promise<boolean> {
-  // Now handled in initDatabase
   return internalPool !== null;
 }
 
