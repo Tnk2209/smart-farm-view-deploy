@@ -1,81 +1,24 @@
 import pg from 'pg';
-import dns from 'dns';
-import { promisify } from 'util';
-import { URL } from 'url';
 import { config } from '../config.js';
 
 const { Pool } = pg;
 
 let internalPool: pg.Pool | null = null;
 
-// Initialize database with forced IPv4 resolution
+// Initialize database
 export async function initDatabase(): Promise<boolean> {
   try {
     let poolConfig: pg.PoolConfig;
 
     if (config.database.connectionString) {
-      // Force IPv4 if using connection string
-      console.log('🔄 Resolving database host to IPv4 using dns.lookup...');
-      try {
-        const url = new URL(config.database.connectionString);
-        const originalHost = url.hostname;
+      console.log('� Connecting to database using connection string...');
 
-        // Resolve hostname to IPv4 using dns.lookup (uses OS resolver, handles CNAMEs)
-        const lookup = promisify(dns.lookup);
-        const { address } = await lookup(originalHost, { family: 4 });
-
-        if (address) {
-          console.log(`✅ Resolved ${originalHost} to IPv4: ${address}`);
-
-          // Replace hostname with IPv4 in connection string
-          url.hostname = address;
-          poolConfig = {
-            connectionString: url.toString(),
-            ssl: { rejectUnauthorized: false }, // Render/Supabase often require this
-          };
-        } else {
-          console.warn(`⚠️ Could not resolve ${originalHost} to IPv4, using original string.`);
-          poolConfig = {
-            connectionString: config.database.connectionString,
-            ssl: { rejectUnauthorized: false },
-          };
-        }
-      } catch (err) {
-        console.error('❌ Failed to resolve hostname via DNS:', err);
-
-        // Fallback to known Supabase IPv4 (hardcoded for stability)
-        // IP obtained from: nslookup aws-0-ap-southeast-1.pooler.supabase.com
-        const FALLBACK_IP = '52.77.146.31';
-        console.warn(`⚠️ Using fallback IPv4 address: ${FALLBACK_IP}`);
-
-        try {
-          const url = new URL(config.database.connectionString);
-          const originalHostname = url.hostname;
-
-          // Extract project reference from hostname (e.g. db.abcdefg.supabase.co -> abcdefg)
-          const projectRef = originalHostname.split('.')[1];
-
-          url.hostname = FALLBACK_IP;
-
-          if (projectRef && !url.username.includes(projectRef)) {
-            // Supavisor needs [user].[project_ref] format when connecting via IP
-            console.log(`🔧 Appending project ref '${projectRef}' to username for direct IP connection`);
-            url.username = `${url.username}.${projectRef}`;
-          }
-
-          poolConfig = {
-            connectionString: url.toString(),
-            ssl: { rejectUnauthorized: false },
-          };
-        } catch (urlErr) {
-          console.error('❌ Failed to construct fallback URL:', urlErr);
-          // Final fallback: original config
-          poolConfig = {
-            connectionString: config.database.connectionString,
-            ssl: { rejectUnauthorized: false },
-          };
-        }
-      }
+      // Use the connection string directly
+      // Users on Render/Vercel with Supabase should use the Transaction Pooler URL due to IPv6 issues
+      poolConfig = {
+        connectionString: config.database.connectionString,
+        ssl: { rejectUnauthorized: false }, // Required for Supabase/Render
+      };
     } else {
       // Default config (localhost or explicit params)
       poolConfig = {
@@ -93,7 +36,7 @@ export async function initDatabase(): Promise<boolean> {
       ...poolConfig,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     });
 
     // Test connection
@@ -103,8 +46,17 @@ export async function initDatabase(): Promise<boolean> {
     client.release();
     return true;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Database initialization failed:', error);
+
+    if (error.code === 'ENOTFOUND' || error.message?.includes('getaddrinfo ENOTFOUND')) {
+      console.error('\n⚠️  DNS ERROR: Could not resolve database hostname.');
+      console.error('💡  SUGGESTION: If you are using Supabase on Render:');
+      console.error('    1. Go to your Supabase Dashboard -> Settings -> Database -> Connection String -> URI -> select "Transaction Pooler"');
+      console.error('    2. Update your render.yaml or Render Environment Variable DATABASE_URL with the new string.');
+      console.error('    3. The URL should look like: postgres://[user].[ref]:[pass]@aws-0-[region].pooler.supabase.com:6543/[db]\n');
+    }
+
     return false;
   }
 }
