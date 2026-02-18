@@ -321,25 +321,28 @@ export async function insertAlert(
 
 export async function getAlertsByStationId(
   stationId: number,
+  limit: number = 50
 ): Promise<Alert[]> {
   const result = await pool.query<Alert>(
     `SELECT a.*, s.station_name, se.sensor_type FROM alert a
      JOIN station s ON a.station_id = s.station_id
      JOIN sensor se ON a.sensor_id = se.sensor_id
      WHERE a.station_id = $1 
-     ORDER BY a.created_at DESC `,
-    [stationId]
+     ORDER BY a.created_at DESC 
+     LIMIT $2`,
+    [stationId, limit]
   );
   return result.rows;
 }
 
-export async function getRecentAlerts(): Promise<Alert[]> {
+export async function getRecentAlerts(limit: number = 50): Promise<Alert[]> {
   const result = await pool.query<Alert>(
     `SELECT a.*, s.station_name, se.sensor_type FROM alert a
      JOIN station s ON a.station_id = s.station_id
      JOIN sensor se ON a.sensor_id = se.sensor_id
-     ORDER BY a.created_at DESC `,
-    []
+     ORDER BY a.created_at DESC 
+     LIMIT $1`,
+    [limit]
   );
   return result.rows;
 }
