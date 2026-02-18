@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from './config.js';
-import { testConnection, closeConnection } from './database/connection.js';
+import { initDatabase, closeConnection } from './database/connection.js';
 import { initializeMqttSubscriber, closeMqttConnection } from './mqtt/subscriber.js';
 
 // Import routes
@@ -91,10 +91,10 @@ async function startServer() {
   try {
     console.log('🚀 Starting Smart Farm Backend...\n');
 
-    // Test database connection
-    const dbConnected = await testConnection();
+    // Initialize Database (Force IPv4 resolution)
+    const dbConnected = await initDatabase();
     if (!dbConnected) {
-      throw new Error('Failed to connect to database');
+      throw new Error('Failed to connect to database. Check configuration.');
     }
 
     // Initialize MQTT subscriber

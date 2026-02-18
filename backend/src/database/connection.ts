@@ -1,49 +1,114 @@
 import pg from 'pg';
+import dns from 'dns';
+import { promisify } from 'util';
+import { URL } from 'url';
 import { config } from '../config.js';
 
 const { Pool } = pg;
+const resolve4 = promisify(dns.resolve4);
 
-// Create PostgreSQL connection pool
-const poolConfig = config.database.connectionString
-  ? {
-    connectionString: config.database.connectionString,
-    ssl: { rejectUnauthorized: false }, // Render/Supabase often require this for connection strings
-  }
-  : {
-    host: config.database.host,
-    port: config.database.port,
-    database: config.database.name,
-    user: config.database.user,
-    password: config.database.password,
-    ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
-  };
+let internalPool: pg.Pool | null = null;
 
-export const pool = new Pool({
-  ...poolConfig,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-});
-
-// Test database connection
-export async function testConnection(): Promise<boolean> {
+// Initialize database with forced IPv4 resolution
+export async function initDatabase(): Promise<boolean> {
   try {
-    const client = await pool.connect();
+    let poolConfig: pg.PoolConfig;
+
+    if (config.database.connectionString) {
+      // Force IPv4 if using connection string
+      console.log('🔄 Resolving database host to IPv4...');
+      try {
+        const url = new URL(config.database.connectionString);
+        const originalHost = url.hostname;
+
+        // Resolve hostname to IPv4
+        const ipAddresses = await resolve4(originalHost);
+        if (ipAddresses && ipAddresses.length > 0) {
+          const ipv4 = ipAddresses[0];
+          console.log(`✅ Resolved ${originalHost} to IPv4: ${ipv4}`);
+
+          // Replace hostname with IPv4 in connection string
+          url.hostname = ipv4;
+          poolConfig = {
+            connectionString: url.toString(),
+            ssl: { rejectUnauthorized: false }, // Render/Supabase often require this
+          };
+        } else {
+          console.warn(`⚠️ Could not resolve ${originalHost} to IPv4, using original string.`);
+          poolConfig = {
+            connectionString: config.database.connectionString,
+            ssl: { rejectUnauthorized: false },
+          };
+        }
+      } catch (err) {
+        console.error('❌ Failed to resolve hostname:', err);
+        // Fallback to original config
+        poolConfig = {
+          connectionString: config.database.connectionString,
+          ssl: { rejectUnauthorized: false },
+        };
+      }
+    } else {
+      // Default config (localhost or explicit params)
+      poolConfig = {
+        host: config.database.host,
+        port: config.database.port,
+        database: config.database.name,
+        user: config.database.user,
+        password: config.database.password,
+        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+      };
+    }
+
+    // Create pool with final config
+    internalPool = new Pool({
+      ...poolConfig,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+
+    // Test connection
+    const client = await internalPool.connect();
     const result = await client.query('SELECT NOW()');
     console.log('✅ PostgreSQL connected successfully at:', result.rows[0].now);
     client.release();
     return true;
+
   } catch (error) {
-    console.error('❌ PostgreSQL connection error:', error);
+    console.error('❌ Database initialization failed:', error);
     return false;
   }
 }
 
-// Graceful shutdown
-export async function closeConnection(): Promise<void> {
-  await pool.end();
-  console.log('PostgreSQL pool closed');
-}
+// Wrapper for Pool to maintain compatibility with existing code
+export const pool = {
+  query: async <T extends pg.QueryResultRow = any>(
+    text: string | pg.QueryConfig<any[]>,
+    params?: any[]
+  ): Promise<pg.QueryResult<T>> => {
+    if (!internalPool) {
+      throw new Error('Database pool not initialized. Call initDatabase() first.');
+    }
+    return internalPool.query<T>(text, params);
+  },
+  connect: async (): Promise<pg.PoolClient> => {
+    if (!internalPool) {
+      throw new Error('Database pool not initialized. Call initDatabase() first.');
+    }
+    return internalPool.connect();
+  },
+  end: async (): Promise<void> => {
+    if (internalPool) {
+      await internalPool.end();
+      console.log('PostgreSQL pool closed');
+    }
+  },
+  on: (event: string, listener: (...args: any[]) => void): any => {
+    if (!internalPool) return undefined;
+    return (internalPool as any).on(event, listener);
+  }
+} as unknown as pg.Pool;
 
 // Helper function for transactions
 export async function withTransaction<T>(
@@ -61,4 +126,14 @@ export async function withTransaction<T>(
   } finally {
     client.release();
   }
+}
+
+// Backward compatibility exports (no-op or warnings)
+export async function testConnection(): Promise<boolean> {
+  // Now handled in initDatabase
+  return internalPool !== null;
+}
+
+export async function closeConnection(): Promise<void> {
+  return pool.end();
 }
