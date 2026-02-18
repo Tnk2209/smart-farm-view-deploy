@@ -41,12 +41,28 @@ export async function initDatabase(): Promise<boolean> {
           };
         }
       } catch (err) {
-        console.error('❌ Failed to resolve hostname:', err);
-        // Fallback to original config
-        poolConfig = {
-          connectionString: config.database.connectionString,
-          ssl: { rejectUnauthorized: false },
-        };
+        console.error('❌ Failed to resolve hostname via DNS:', err);
+
+        // Fallback to known Supabase IPv4 (hardcoded for stability)
+        // IP obtained from: nslookup aws-0-ap-southeast-1.pooler.supabase.com
+        const FALLBACK_IP = '52.77.146.31';
+        console.warn(`⚠️ Using fallback IPv4 address: ${FALLBACK_IP}`);
+
+        try {
+          const url = new URL(config.database.connectionString);
+          url.hostname = FALLBACK_IP;
+          poolConfig = {
+            connectionString: url.toString(),
+            ssl: { rejectUnauthorized: false },
+          };
+        } catch (urlErr) {
+          console.error('❌ Failed to construct fallback URL:', urlErr);
+          // Final fallback: original config
+          poolConfig = {
+            connectionString: config.database.connectionString,
+            ssl: { rejectUnauthorized: false },
+          };
+        }
       }
     } else {
       // Default config (localhost or explicit params)
