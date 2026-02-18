@@ -11,6 +11,7 @@ interface Config {
   port: number;
   nodeEnv: string;
   database: {
+    connectionString?: string;
     host: string;
     port: number;
     name: string;
@@ -35,6 +36,7 @@ export const config: Config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   database: {
+    connectionString: process.env.DATABASE_URL,
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'smart_farm',
@@ -49,7 +51,7 @@ export const config: Config = {
     topic: process.env.MQTT_TOPIC || 'smartfarm/telemetry/#', // เปลี่ยนกลับมาใช้ env variable
     // Support multiple topics - can be comma-separated in env
     // Falls back to MQTT_TOPIC if MQTT_TOPICS is not set
-    topics: process.env.MQTT_TOPICS 
+    topics: process.env.MQTT_TOPICS
       ? process.env.MQTT_TOPICS.split(',').map(t => t.trim())
       : [process.env.MQTT_TOPIC || 'smartfarm/telemetry/#'],
   },

@@ -4,13 +4,22 @@ import { config } from '../config.js';
 const { Pool } = pg;
 
 // Create PostgreSQL connection pool
+const poolConfig = config.database.connectionString
+  ? {
+    connectionString: config.database.connectionString,
+    ssl: { rejectUnauthorized: false }, // Render/Supabase often require this for connection strings
+  }
+  : {
+    host: config.database.host,
+    port: config.database.port,
+    database: config.database.name,
+    user: config.database.user,
+    password: config.database.password,
+    ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+  };
+
 export const pool = new Pool({
-  host: config.database.host,
-  port: config.database.port,
-  database: config.database.name,
-  user: config.database.user,
-  password: config.database.password,
-  ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+  ...poolConfig,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
   connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
