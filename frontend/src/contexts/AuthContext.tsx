@@ -5,18 +5,19 @@ import { login as apiLogin, logout as apiLogout } from '@/lib/api';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  token: string | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   hasPermission: (permission: Permission) => boolean;
 }
 
 // Permissions based on Access Control Matrix from document
-type Permission = 
-  | 'view_dashboard' 
-  | 'view_sensor_data' 
-  | 'manage_station' 
+type Permission =
+  | 'view_dashboard'
+  | 'view_sensor_data'
+  | 'manage_station'
   | 'manage_sensor'
-  | 'configure_threshold' 
+  | 'configure_threshold'
   | 'manage_user'
   | 'view_4_pillars_risk'
   | 'view_helpdesk';
@@ -35,6 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check localStorage for existing session
     const stored = localStorage.getItem('auth_user');
     return stored ? JSON.parse(stored) : null;
+  });
+
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('token');
   });
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
@@ -64,13 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        isAuthenticated: !!user, 
-        login, 
-        logout, 
-        hasPermission 
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        login,
+        token,
+        logout,
+        hasPermission
       }}
     >
       {children}

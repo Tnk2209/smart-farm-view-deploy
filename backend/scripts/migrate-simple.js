@@ -8,7 +8,7 @@ const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'smart_farm',
-  user: process.env.DB_USER || 'postgres',
+  user: process.env.DB_user || 'postgres',
   password: process.env.DB_PASSWORD || '',
 });
 
@@ -25,26 +25,30 @@ try {
 
   // Create Role table
   await client.query(`
-    CREATE TABLE IF NOT EXISTS "Role" (
+    CREATE TABLE IF NOT EXISTS "role" (
       role_id SERIAL PRIMARY KEY,
       role_name VARCHAR(50) UNIQUE NOT NULL
     )
   `);
-  console.log('✅ Table "Role" created');
+  console.log('✅ Table "role" created');
 
-  // Create User table
+  // Create user table
   await client.query(`
-    CREATE TABLE IF NOT EXISTS "User" (
+    CREATE TABLE IF NOT EXISTS "user" (
       user_id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       email VARCHAR(100) UNIQUE NOT NULL,
-      role_id INTEGER NOT NULL REFERENCES "Role"(role_id),
+      first_name VARCHAR(100),
+      last_name VARCHAR(100),
+      national_id VARCHAR(20),
+      phone_number VARCHAR(20),
+      role_id INTEGER NOT NULL REFERENCES "role"(role_id),
       status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  console.log('✅ Table "User" created');
+  console.log('✅ Table "user" created');
 
   // Create station table
   await client.query(`
@@ -99,7 +103,7 @@ try {
       sensor_type VARCHAR(50) UNIQUE NOT NULL,
       min_value FLOAT NOT NULL,
       max_value FLOAT NOT NULL,
-      created_by INTEGER REFERENCES "User"(user_id),
+      created_by INTEGER REFERENCES "user"(user_id),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CHECK (min_value < max_value)
     )
@@ -133,7 +137,7 @@ try {
   await client.query(`
     CREATE TABLE IF NOT EXISTS farm_plot (
       plot_id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES "User"(user_id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
       lat DOUBLE PRECISION NOT NULL,
       lon DOUBLE PRECISION NOT NULL,
       utm_coords VARCHAR(50),
@@ -163,14 +167,14 @@ try {
     CREATE TABLE IF NOT EXISTS support_ticket (
       ticket_id SERIAL PRIMARY KEY,
       ticket_number VARCHAR(20) UNIQUE NOT NULL,
-      user_id INTEGER REFERENCES "User"(user_id),
+      user_id INTEGER REFERENCES "user"(user_id),
       station_id INTEGER REFERENCES station(station_id),
       category VARCHAR(50) NOT NULL,
       topic VARCHAR(100),
       description TEXT,
       priority VARCHAR(20) DEFAULT 'normal',
       status VARCHAR(20) DEFAULT 'open',
-      assigned_to INTEGER REFERENCES "User"(user_id),
+      assigned_to INTEGER REFERENCES "user"(user_id),
       resolution_note TEXT,
       source VARCHAR(20),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

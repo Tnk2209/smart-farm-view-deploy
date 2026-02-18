@@ -733,9 +733,9 @@ export async function getAllTickets(): Promise<SupportTicket[]> {
   const result = await pool.query<SupportTicket>(
     `SELECT t.*, u.username, s.station_name, a.username as assignee_name
      FROM support_ticket t
-     LEFT JOIN "User" u ON t.user_id = u.user_id
+     LEFT JOIN "user" u ON t.user_id = u.user_id
      LEFT JOIN station s ON t.station_id = s.station_id
-     LEFT JOIN "User" a ON t.assigned_to = a.user_id
+     LEFT JOIN "user" a ON t.assigned_to = a.user_id
      ORDER BY 
        CASE WHEN t.status = 'open' THEN 1 
             WHEN t.status = 'in_progress' THEN 2 
@@ -762,9 +762,9 @@ export async function getTicketById(ticketId: number): Promise<SupportTicket | n
   const result = await pool.query<SupportTicket>(
     `SELECT t.*, u.username, s.station_name, a.username as assignee_name
      FROM support_ticket t
-     LEFT JOIN "User" u ON t.user_id = u.user_id
+     LEFT JOIN "user" u ON t.user_id = u.user_id
      LEFT JOIN station s ON t.station_id = s.station_id
-     LEFT JOIN "User" a ON t.assigned_to = a.user_id
+     LEFT JOIN "user" a ON t.assigned_to = a.user_id
      WHERE t.ticket_id = $1`,
     [ticketId]
   );

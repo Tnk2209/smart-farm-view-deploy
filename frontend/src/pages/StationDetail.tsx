@@ -197,7 +197,7 @@ export default function StationDetail() {
   useEffect(() => {
     if (latestData.length > 0 && visibleSensorIds.length === 0) {
       const validSensors = latestData
-        .filter(d => d.sensor.sensor_type !== 'gate_door')
+        .filter(d => d.sensor.sensor_type in sensorTypeLabels)
         .map(d => d.sensor.sensor_id.toString());
       setVisibleSensorIds(validSensors);
     }
@@ -206,7 +206,7 @@ export default function StationDetail() {
   // Fetch history for ALL sensors when timeRange changes or station loads
   useEffect(() => {
     const fetchAllHistory = async () => {
-      const validSensors = latestData.filter(d => d.sensor.sensor_type !== 'gate_door');
+      const validSensors = latestData.filter(d => d.sensor.sensor_type in sensorTypeLabels);
       if (validSensors.length === 0) return;
 
       setChartLoading(true);
@@ -271,7 +271,7 @@ export default function StationDetail() {
             const sensorType = validSensors[index].sensor.sensor_type;
             const baseline = SENSOR_BASELINES[sensorType] || 1;
             const validRange = SENSOR_VALID_RANGES[sensorType] || { min: 0, max: 100 };
-            
+
             const data = res.data.map(d => ({
               ...d,
               sensorId,
@@ -729,7 +729,7 @@ export default function StationDetail() {
                 <TabsList className="grid w-full max-w-[400px] grid-cols-2">
                   <TabsTrigger value="sensors" className="flex items-center gap-2">
                     <Thermometer className="h-4 w-4" />
-                    Sensors ({latestData.filter(item => item.sensor.sensor_type !== 'gate_door').length})
+                    Sensors ({latestData.filter(item => item.sensor.sensor_type in sensorTypeLabels).length})
                   </TabsTrigger>
                   <TabsTrigger value="deviceStatus" className="flex items-center gap-2">
                     <Battery className="h-4 w-4" />
@@ -739,21 +739,24 @@ export default function StationDetail() {
               </div>
 
               {/* Sensors Tab Content */}
-              <TabsContent value="sensors" className="mt-0">
+              <TabsContent value="sensors" className="mt-6">
                 {latestData.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                      <Thermometer className="h-10 w-10 mb-4 opacity-20" />
-                      <p>No sensors installed at this station</p>
+                  <Card className="border-dashed bg-muted/50 border-2">
+                    <CardContent className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+                      <div className="p-4 rounded-full bg-background mb-4 shadow-sm">
+                        <Thermometer className="h-10 w-10 opacity-20" />
+                      </div>
+                      <p className="text-lg font-medium">No sensors installed at this station</p>
+                      <p className="text-sm">Information will appear here once sensors are linked.</p>
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {latestData.map((item, index) => {
                       const { sensor, latestData: data } = item;
 
-                      // Hide gate_door sensor - it's shown in Lock Control Card
-                      if (sensor.sensor_type === 'gate_door') {
+                      // Only show environmental sensors defined in our labels map
+                      if (!(sensor.sensor_type in sensorTypeLabels)) {
                         return null;
                       }
 
@@ -763,41 +766,68 @@ export default function StationDetail() {
                           to={`/sensors/${sensor.sensor_id}`}
                           className="block group"
                         >
-                          <Card className="h-full overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50 relative bg-card/50 backdrop-blur-sm border-muted/60">
-                            {/* Active Indicator Line */}
-                            <div className={`absolute top-0 left-0 w-1 h-full ${sensor.status === 'active' ? 'bg-primary' :
-                              sensor.status === 'error' ? 'bg-destructive' : 'bg-muted'
+                          <Card className="h-full relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 bg-card/40 backdrop-blur-xl border-primary/10 hover:border-primary/30 group">
+                            {/* Decorative background glow */}
+                            <div className="absolute -right-12 -top-12 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500" />
+
+                            {/* Status bar */}
+                            <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-500 ${sensor.status === 'active' ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                              sensor.status === 'error' ? 'bg-gradient-to-r from-red-500 to-orange-400' : 'bg-muted'
                               }`} />
 
-                            <CardContent className="p-4 pl-5">
-                              <div className="flex justify-between items-start mb-3">
-                                <div className="p-2 rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                                  <SensorIcon type={sensor.sensor_type} className="h-5 w-5" />
+                            <CardContent className="p-6">
+                              <div className="flex justify-between items-start mb-6">
+                                <div className={`p-3 rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-110 transition-transform duration-500 shadow-inner`}>
+                                  <SensorIcon type={sensor.sensor_type} className="h-6 w-6" />
                                 </div>
-                                {sensor.status === 'active' && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-500/30 text-green-600 bg-green-500/10">
-                                    Active
-                                  </Badge>
-                                )}
+                                <div className="flex flex-col items-end gap-1.5">
+                                  {sensor.status === 'active' ? (
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                      </span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-green-600">Live</span>
+                                    </div>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                      {sensor.status}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
 
-                              <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-muted-foreground line-clamp-1" title={sensorTypeLabels[sensor.sensor_type]}>
-                                  {sensorTypeLabels[sensor.sensor_type]}
-                                </p>
-                                <div className="flex items-baseline gap-1">
-                                  {data?.value !== undefined && data?.value !== null ? (
-                                    <>
-                                      <span className="text-2xl font-bold tracking-tight text-foreground">
-                                        {Number(data.value).toFixed(2)}
-                                      </span>
-                                      <span className="text-xs font-medium text-muted-foreground">
-                                        {sensorTypeUnits[sensor.sensor_type]}
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span className="text-xl font-mono text-muted-foreground/50">--</span>
-                                  )}
+                              <div className="space-y-4">
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 line-clamp-1" title={sensorTypeLabels[sensor.sensor_type]}>
+                                    {sensorTypeLabels[sensor.sensor_type]}
+                                  </p>
+                                  <div className="flex items-baseline gap-2">
+                                    {data?.value !== undefined && data?.value !== null ? (
+                                      <>
+                                        <span className="text-4xl font-extrabold tracking-tight text-foreground">
+                                          {Number(data.value).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                                        </span>
+                                        <span className="text-sm font-semibold text-muted-foreground/80">
+                                          {sensorTypeUnits[sensor.sensor_type] || ''}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="text-3xl font-mono text-muted-foreground/20 italic tracking-tighter">--</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-primary/5 flex items-center justify-between">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-tight">Last updated</span>
+                                    <span className="text-[11px] font-medium text-foreground/70">
+                                      {data?.recorded_at ? formatDistanceToNow(new Date(data.recorded_at), { addSuffix: true }) : 'Never'}
+                                    </span>
+                                  </div>
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 transform translate-x-1 group-hover:translate-x-0">
+                                    <ArrowRight className="w-4 h-4 text-primary" />
+                                  </div>
                                 </div>
                               </div>
                             </CardContent>
@@ -835,7 +865,7 @@ export default function StationDetail() {
                 )}
               </CardTitle>
               <CardDescription>
-                {activeTab === 'sensors' 
+                {activeTab === 'sensors'
                   ? 'Historical environmental data visualization'
                   : 'Battery, solar, and power system monitoring'}
               </CardDescription>
@@ -856,15 +886,15 @@ export default function StationDetail() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[240px]">
                     <DropdownMenuLabel>
-                      Select Sensors ({visibleSensorIds.length}/{latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length})
+                      Select Sensors ({visibleSensorIds.length}/{latestData.filter(d => d.sensor.sensor_type in sensorTypeLabels).length})
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuCheckboxItem
-                      checked={visibleSensorIds.length === latestData.filter(d => d.sensor.sensor_type !== 'gate_door').length}
+                      checked={visibleSensorIds.length === latestData.filter(d => d.sensor.sensor_type in sensorTypeLabels).length}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           const allIds = latestData
-                            .filter(d => d.sensor.sensor_type !== 'gate_door')
+                            .filter(d => d.sensor.sensor_type in sensorTypeLabels)
                             .map(d => d.sensor.sensor_id.toString());
                           setVisibleSensorIds(allIds);
                         } else {
@@ -877,7 +907,7 @@ export default function StationDetail() {
                     <DropdownMenuSeparator />
                     <div className="max-h-[300px] overflow-y-auto">
                       {latestData
-                        .filter(d => d.sensor.sensor_type !== 'gate_door')
+                        .filter(d => d.sensor.sensor_type in sensorTypeLabels)
                         .map((item, index) => {
                           const sId = item.sensor.sensor_id.toString();
                           const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -967,7 +997,7 @@ export default function StationDetail() {
             <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-hide mb-2">
               {activeTab === 'sensors' ? (
                 latestData
-                  .filter(d => d.sensor.sensor_type !== 'gate_door')
+                  .filter(d => d.sensor.sensor_type in sensorTypeLabels)
                   .filter(d => visibleSensorIds.includes(d.sensor.sensor_id.toString()))
                   .map((item, index) => {
                     const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -1064,7 +1094,7 @@ export default function StationDetail() {
                     />
 
                     {latestData
-                      .filter(d => d.sensor.sensor_type !== 'gate_door')
+                      .filter(d => d.sensor.sensor_type in sensorTypeLabels)
                       .map((item, index) => {
                         const sId = item.sensor.sensor_id.toString();
                         if (!visibleSensorIds.includes(sId)) return null;
@@ -1136,14 +1166,14 @@ export default function StationDetail() {
                         const fieldKey = name.split(' ')[0];
                         const rawValue = props.payload[`${fieldKey}_raw`];
                         const statusValue = value;
-                        
+
                         const fieldUnits: Record<string, string> = {
                           batt_v: 'V', batt_cap: '%', batt_temp_c: '°C',
                           pv_v: 'V', pv_a: 'A',
                           load_w: 'W', load_a: 'A', load_v: 'V', chg_a: 'A',
                           cbn_temp_c: '°C', cbn_rh_pct: '%', ctrl_temp_c: '°C'
                         };
-                        
+
                         const unit = fieldUnits[fieldKey] || '';
                         const isWorking = statusValue > 0;
                         const status = isWorking ? '✓ ปกติ' : '✗ ผิดปกติ';
@@ -1186,7 +1216,7 @@ export default function StationDetail() {
                 <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
                   {activeTab === 'sensors' ? <Activity className="h-10 w-10 mb-2 opacity-20" /> : <Zap className="h-10 w-10 mb-2 opacity-20" />}
                   <p>
-                    {activeTab === 'sensors' 
+                    {activeTab === 'sensors'
                       ? (visibleSensorIds.length === 0 ? 'Select sensors to view trends' : 'No historical data available for this period')
                       : (visibleStatusFields.length === 0 ? 'Select status fields to view trends' : 'No device status data available for this period')
                     }

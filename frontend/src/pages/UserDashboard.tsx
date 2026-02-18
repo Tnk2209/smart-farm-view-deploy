@@ -4,15 +4,18 @@ import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { getMyFarmPlots, getStationById, getStationLatestData, getSensorData, getPlotDiseaseRisk } from '@/lib/api';
 import { FarmPlot, Station, SensorData, PlotDiseaseRisk } from '@/lib/types';
+import { sensorTypeLabels, sensorTypeUnits } from '@/components/SensorIcon';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Sprout, Wind, Droplets, Thermometer, CloudRain, Clock, Map as MapIcon, Info, TrendingUp, AlertTriangle, CloudFog, Gauge, Monitor, Radio, Activity, RotateCcw } from 'lucide-react';
-import { format, subDays, subHours } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { format, subDays, subHours, subMonths, subMinutes } from 'date-fns';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Option } from '@/components/ui/multi-select';
+import { cn } from '@/lib/utils';
+// ... other imports
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -96,15 +99,38 @@ export default function UserDashboard() {
     const [loading, setLoading] = useState(true);
     const [dataLoading, setDataLoading] = useState(false);
 
-    // History data for charts
-    const [tempHumidHistory, setTempHumidHistory] = useState<any[]>([]);
-    const [soilHistory, setSoilHistory] = useState<any[]>([]);
-    const [rainHistory, setRainHistory] = useState<any[]>([]);
+
+    // Chart State
+    const [chartData, setChartData] = useState<any[]>([]);
+    const [timeRange, setTimeRange] = useState<string>('24h');
+    const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
+        'air_temp_c', 'air_rh_pct', 'rain_rate_mmph', 'soil_rh_pct'
+    ]);
+
+    // Metric Config
+    const METRIC_CONFIG: Record<string, { label: string, color: string, unit: string, axisId: string }> = {
+        'air_temp_c': { label: 'Air Temp', color: '#f97316', unit: '°C', axisId: 'temp' }, // Orange
+        'air_rh_pct': { label: 'Humidity', color: '#3b82f6', unit: '%', axisId: 'percent' }, // Blue
+        'rain_rate_mmph': { label: 'Rain Rate', color: '#0ea5e9', unit: 'mm/h', axisId: 'rain' }, // Sky
+        'soil_rh_pct': { label: 'Soil Moisture', color: '#8b5cf6', unit: '%', axisId: 'percent' }, // Violet
+        'soil_temp_c': { label: 'Soil Temp', color: '#d946ef', unit: '°C', axisId: 'temp' }, // Fuchsia
+        'air_pressure_kpa': { label: 'Pressure', color: '#10b981', unit: 'kPa', axisId: 'pressure' }, // Emerald
+    };
+
+    const metricOptions: Option[] = [
+        { label: 'Air Temperature', value: 'air_temp_c', icon: Thermometer },
+        { label: 'Air Humidity', value: 'air_rh_pct', icon: Droplets },
+        { label: 'Rain Rate', value: 'rain_rate_mmph', icon: CloudRain },
+        { label: 'Soil Moisture', value: 'soil_rh_pct', icon: Radio }, // Icon placeholder
+        { label: 'Soil Temperature', value: 'soil_temp_c', icon: Thermometer },
+        { label: 'Air Pressure', value: 'air_pressure_kpa', icon: Gauge },
+    ];
 
     // Derived state
     const activePlots = useMemo(() => allPlots.filter(p => p.status === 'active'), [allPlots]);
     const pendingPlots = useMemo(() => allPlots.filter(p => p.status === 'pending'), [allPlots]);
     const rejectedPlots = useMemo(() => allPlots.filter(p => p.status === 'rejected'), [allPlots]);
+
 
     // Initial Fetch
     useEffect(() => {
@@ -161,25 +187,10 @@ export default function UserDashboard() {
                                 data_id: item.latestData?.data_id
                             }));
 
-                            // // Filter to show only specifically requested sensors
-                            // const allowedSensors = [
-                            //     'wind_speed_ms',
-                            //     'air_temp_c',
-                            //     'air_rh_pct',
-                            //     'air_pressure_hpa',
-                            //     'soil_temp_c',
-                            //     'soil_rh_pct' // Fallback
-                            // ];
-
-                            // const filteredData = flattenedData.filter((item: any) =>
-                            //     allowedSensors.includes(item.sensor_type)
-                            // );
-
                             setSensorData(flattenedData);
 
-                            // Fetch history for charts (mock logic for now - ideally we fetch per sensor)
-                            // We will fetch 24h history for specific sensors found in flattenedData
-                            fetchChartHistory(flattenedData);
+                            // Fetch history for charts
+                            fetchChartHistory(flattenedData, timeRange);
                         } else {
                             setSensorData([]);
                         }
@@ -197,51 +208,88 @@ export default function UserDashboard() {
         fetchPlotData();
     }, [selectedPlotId, activePlots]);
 
-    const fetchChartHistory = async (sensors: any[]) => {
-        // Find relevant sensors
-        const tempSensor = sensors.find(s => s.sensor_type.toLowerCase().includes('temp'));
-        const humidSensor = sensors.find(s => s.sensor_type.toLowerCase().includes('humid'));
-        const soilSensor = sensors.find(s => s.sensor_type.toLowerCase().includes('soil'));
-        const rainSensor = sensors.find(s => s.sensor_type.toLowerCase().includes('rain'));
+    useEffect(() => {
+        if (sensorData.length > 0) {
+            fetchChartHistory(sensorData, timeRange);
+        }
+    }, [timeRange, sensorData]);
 
+    const fetchChartHistory = async (sensors: any[], range: string) => {
+        if (!sensors.length) return;
+
+        // Calculate Start Date
         const endDate = new Date();
-        const startDate = subHours(endDate, 24);
+        let startDate = subHours(endDate, 24); // Default 24h
 
-        const fetchSensorHistory = async (sensor: any) => {
-            if (!sensor) return [];
-            const res = await getSensorData(sensor.sensor_id, startDate.toISOString(), endDate.toISOString());
-            return res.success && res.data ? res.data : [];
-        };
+        switch (range) {
+            case '30m': startDate = subMinutes(endDate, 30); break;
+            case '1h': startDate = subHours(endDate, 1); break;
+            case '3h': startDate = subHours(endDate, 3); break;
+            case '6h': startDate = subHours(endDate, 6); break;
+            case '24h': startDate = subHours(endDate, 24); break;
+            case '14d': startDate = subDays(endDate, 14); break;
+            case '30d': startDate = subDays(endDate, 30); break;
+        }
 
-        const [tempData, humidData, soilData, rainData] = await Promise.all([
-            fetchSensorHistory(tempSensor),
-            fetchSensorHistory(humidSensor),
-            fetchSensorHistory(soilSensor),
-            fetchSensorHistory(rainSensor)
-        ]);
+        // Helper to find sensor by type substring
+        const findSensor = (keyword: string) => sensors.find(s => s.sensor_type.includes(keyword));
 
-        // Merge Temp & Humid
-        const mergedTempHumid = tempData.map(t => {
-            const h = humidData.find(h => Math.abs(new Date(h.recorded_at).getTime() - new Date(t.recorded_at).getTime()) < 5 * 60 * 1000); // match within 5 mins
-            return {
-                time: format(new Date(t.recorded_at), 'HH:mm'),
-                temp: t.value,
-                humid: h ? h.value : null
-            };
-        }).reverse(); // API usually returns desc
-        setTempHumidHistory(mergedTempHumid.reverse()); // Chart needs asc
+        // Define sensors to fetch
+        const targets = [
+            { key: 'air_temp_c', sensor: findSensor('air_temp_c') || findSensor('temp') },
+            { key: 'air_rh_pct', sensor: findSensor('air_rh_pct') || findSensor('humid') },
+            { key: 'rain_rate_mmph', sensor: findSensor('rain_rate') || findSensor('rain') },
+            { key: 'soil_rh_pct', sensor: findSensor('soil_rh') || findSensor('soil') },
+            { key: 'soil_temp_c', sensor: findSensor('soil_temp') },
+            { key: 'air_pressure_kpa', sensor: findSensor('pressure') },
+        ];
 
-        // Soil
-        setSoilHistory(soilData.map(d => ({
-            time: format(new Date(d.recorded_at), 'HH:mm'),
-            value: d.value
-        })).reverse());
+        // Fetch all concurrently
+        const results = await Promise.all(
+            targets.map(async (t) => {
+                if (!t.sensor) return { key: t.key, data: [] };
+                try {
+                    const res = await getSensorData(t.sensor.sensor_id, startDate.toISOString(), endDate.toISOString());
+                    return { key: t.key, data: res.success && res.data ? res.data : [] };
+                } catch (e) {
+                    console.error(`Error fetching ${t.key}`, e);
+                    return { key: t.key, data: [] };
+                }
+            })
+        );
 
-        // Rain
-        setRainHistory(rainData.map(d => ({
-            time: format(new Date(d.recorded_at), 'HH:mm'),
-            value: d.value
-        })).reverse());
+        // Merge Data Strategy: Bucket by timestamp
+        const timeMap = new Map<string, any>();
+
+        // Date formatting for chart axis
+        const axisFormat = ['30m', '1h', '3h'].includes(range) ? 'HH:mm' :
+            ['6h', '24h'].includes(range) ? 'HH:mm' : 'dd/MM';
+
+        results.forEach(({ key, data }) => {
+            data.forEach((point: any) => {
+                // Round time to nearest minute to align slightly off sensors
+                const date = new Date(point.recorded_at);
+                date.setSeconds(0, 0);
+                const timeKey = date.getTime();
+
+                if (!timeMap.has(timeKey.toString())) {
+                    timeMap.set(timeKey.toString(), {
+                        originalTime: date,
+                        time: format(date, axisFormat),
+                        fullDate: date.toISOString(), // for sorting
+                    });
+                }
+                const entry = timeMap.get(timeKey.toString());
+                entry[key] = point.value; // Inject value dynamically
+            });
+        });
+
+        // Convert Map to Array and Sort
+        const mergedData = Array.from(timeMap.values()).sort((a, b) =>
+            new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime()
+        );
+
+        setChartData(mergedData);
     };
 
     if (loading) return <DashboardSkeleton />;
@@ -319,9 +367,9 @@ export default function UserDashboard() {
                 </div>
 
                 {/* 2. Middle Section: Map & Risk Analysis */}
-                <div className="grid gap-6 md:grid-cols-12 items-start">
+                <div className="grid gap-6 md:grid-cols-12 items-start h-[700px]">
                     {/* Interactive Map (Left - Larger) */}
-                    <Card className="md:col-span-8 overflow-hidden flex flex-col h-[600px]">
+                    <Card className="md:col-span-8 overflow-hidden flex flex-col h-[700px]">
                         <CardHeader className="py-4 px-6 border-b bg-muted/20">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2">
@@ -383,7 +431,7 @@ export default function UserDashboard() {
                             )}
 
                             {/* Overlay Info */}
-                            <div className="absolute top-4 right-4 z-[999] bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg border max-w-xs">
+                            <div className="absolute top-4 right-4 z-[999] bg-white/90 backdrop-blur p-4 rounded-lg shadow-lg border max-w-lg">
                                 <h4 className="font-semibold text-sm mb-2 border-b pb-1 text-black">Plot Details</h4>
                                 <div className="space-y-1 font-semibold text-xs text-black">
                                     <div className="flex justify-between"><span>Deed:</span> <span className="font-mono">{currentPlot?.land_title_deed}</span></div>
@@ -406,7 +454,7 @@ export default function UserDashboard() {
                     </Card>
 
                     {/* Sensor Status (Right - Smaller) */}
-                    <div className="md:col-span-4 flex flex-col gap-4 h-[600px]">
+                    <div className="md:col-span-4 flex flex-col gap-4 h-[700px]">
                         <div className="bg-card rounded-xl border shadow-sm flex flex-col h-full overflow-hidden">
                             <div className="p-4 border-b bg-muted/20 flex justify-between items-center">
                                 <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -420,11 +468,13 @@ export default function UserDashboard() {
                             </div>
 
                             <div className="p-4 overflow-y-auto grow">
-                                {sensorData.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {sensorData.map((sensor, idx) => (
-                                            <MiniSensorCard key={sensor.sensor_id || idx} data={sensor} />
-                                        ))}
+                                {sensorData.filter(s => s.sensor_type in sensorTypeLabels).length > 0 ? (
+                                    <div className="space-y-3">
+                                        {sensorData
+                                            .filter(s => s.sensor_type in sensorTypeLabels)
+                                            .map((sensor, idx) => (
+                                                <MiniSensorCard key={sensor.sensor_id || idx} data={sensor} />
+                                            ))}
                                     </div>
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4">
@@ -438,70 +488,151 @@ export default function UserDashboard() {
                 </div>
 
                 {/* 3. Bottom Section: Environmental Trends */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" /> Environmental Trends (24h)
-                        </CardTitle>
+                <Card className="overflow-hidden">
+                    <CardHeader className="border-b bg-muted/20 py-4">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5" /> Environmental Trends
+                                </CardTitle>
+
+                                {/* Time Range Selector - Quick Access */}
+                                <div className="flex items-center gap-1 bg-background p-1 rounded-lg border">
+                                    <Select value={timeRange} onValueChange={setTimeRange}>
+                                        <SelectTrigger className="h-7 w-auto px-2 border-0 focus:ring-0 bg-transparent hover:bg-muted/50 transition-colors flex items-center gap-1.5 rounded-md">
+                                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                                                {timeRange === '24h' ? '24 hr' : timeRange}
+                                            </span>
+                                        </SelectTrigger >
+                                        <SelectContent align="end">
+                                            <SelectItem value="30m">30 Mins</SelectItem>
+                                            <SelectItem value="1h">1 Hour</SelectItem>
+                                            <SelectItem value="3h">3 Hours</SelectItem>
+                                            <SelectItem value="6h">6 Hours</SelectItem>
+                                            <SelectItem value="24h">24 Hours</SelectItem>
+                                            <SelectItem value="14d">14 Days</SelectItem>
+                                            <SelectItem value="30d">30 Days</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Metric Filters - Visual Toggles */}
+                            <div className="flex flex-wrap gap-2">
+                                {metricOptions.map((option) => {
+                                    const isSelected = selectedMetrics.includes(option.value);
+                                    const config = METRIC_CONFIG[option.value];
+                                    const Icon = option.icon || Activity;
+
+                                    return (
+                                        <div
+                                            key={option.value}
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setSelectedMetrics(prev => prev.filter(m => m !== option.value));
+                                                } else {
+                                                    setSelectedMetrics(prev => [...prev, option.value]);
+                                                }
+                                            }}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all border select-none",
+                                                isSelected
+                                                    ? "bg-white shadow-sm border-transparent ring-1 ring-border"
+                                                    : "bg-muted/50 text-muted-foreground border-transparent hover:bg-muted"
+                                            )}
+                                            style={isSelected ? { borderColor: config.color, color: config.color } : {}}
+                                        >
+                                            <Icon className="h-3.5 w-3.5" />
+                                            {option.label}
+                                            {isSelected && <span className="ml-1 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: config.color }} />}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <Tabs defaultValue="temp" className="w-full">
-                            <TabsList className="mb-4">
-                                <TabsTrigger value="temp">Temp & Humidity</TabsTrigger>
-                                <TabsTrigger value="soil">Soil Moisture</TabsTrigger>
-                                <TabsTrigger value="rain">Rainfall</TabsTrigger>
-                            </TabsList>
+                        <div className="h-[400px] w-full mt-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                    <XAxis
+                                        dataKey="time"
+                                        minTickGap={30}
+                                        stroke="#888888"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
 
-                            {/* Temp & Humid Chart */}
-                            <TabsContent value="temp" className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={tempHumidHistory}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="time" minTickGap={30} />
-                                        <YAxis yAxisId="left" orientation="left" stroke="#f97316" />
-                                        <YAxis yAxisId="right" orientation="right" stroke="#3b82f6" />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Line yAxisId="left" type="monotone" dataKey="temp" stroke="#f97316" strokeWidth={2} name="Temperature (°C)" dot={false} />
-                                        <Line yAxisId="right" type="monotone" dataKey="humid" stroke="#3b82f6" strokeWidth={2} name="Humidity (%)" dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </TabsContent>
+                                    {/* Y-Axes Configuration */}
+                                    <YAxis yAxisId="temp" orientation="left" stroke="#f97316" label={{ value: '°C', angle: -90, position: 'insideLeft', fill: '#f97316' }} />
+                                    <YAxis yAxisId="percent" orientation="right" stroke="#3b82f6" label={{ value: '%', angle: 90, position: 'insideRight', fill: '#3b82f6' }} />
+                                    <YAxis yAxisId="pressure" orientation="right" hide domain={['auto', 'auto']} />
+                                    <YAxis yAxisId="rain" orientation="right" hide domain={[0, 'auto']} />
 
-                            {/* Soil Chart */}
-                            <TabsContent value="soil" className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={soilHistory}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="time" minTickGap={30} />
-                                        <YAxis stroke="#8b5cf6" />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} name="Soil Moisture (%)" dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </TabsContent>
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
 
-                            {/* Rain Chart */}
-                            <TabsContent value="rain" className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={rainHistory}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="time" minTickGap={30} />
-                                        <YAxis stroke="#0ea5e9" />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Line type="step" dataKey="value" stroke="#0ea5e9" strokeWidth={2} name="Rainfall (mm)" dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </TabsContent>
-                        </Tabs>
+                                    {/* Dynamic Lines based on selection */}
+                                    {selectedMetrics.map((metricKey) => {
+                                        const config = METRIC_CONFIG[metricKey];
+                                        if (!config) return null;
+                                        return (
+                                            <Line
+                                                key={metricKey}
+                                                yAxisId={config.axisId}
+                                                type="monotone"
+                                                dataKey={metricKey}
+                                                name={config.label}
+                                                unit={config.unit}
+                                                stroke={config.color}
+                                                strokeWidth={2}
+                                                dot={false}
+                                                activeDot={{ r: 6, strokeWidth: 0 }}
+                                                connectNulls
+                                            />
+                                        );
+                                    })}
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </CardContent>
                 </Card>
             </div >
         </DashboardLayout >
     );
 }
+
+// --- Custom Tooltip ---
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-popover/95 backdrop-blur border rounded-xl shadow-xl p-3 text-xs min-w-[150px]">
+                <p className="font-semibold mb-2 text-foreground border-b pb-2 flex items-center gap-2">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    {label}
+                </p>
+                <div className="space-y-1.5">
+                    {payload.map((p: any) => (
+                        <div key={p.dataKey} className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full ring-2 ring-opacity-50" style={{ backgroundColor: p.color, '--tw-ring-color': p.color } as any} />
+                                <span className="text-muted-foreground">{p.name}</span>
+                            </div>
+                            <span className="font-mono font-bold">
+                                {typeof p.value === 'number' ? p.value.toFixed(1) : p.value}
+                                <span className="text-muted-foreground/70 ml-0.5 text-[10px]">{p.unit}</span>
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
 
 // --- Sub States ---
 
@@ -662,27 +793,24 @@ function MiniSensorCard({ data }: { data: any }) {
     return (
         <div
             onClick={() => navigate(`/sensors/${data.sensor_id}`)}
-            className={`
-                relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer
-                bg-white dark:bg-card shadow-sm hover:shadow-md
-                flex flex-col justify-between gap-3 overflow-hidden group
-                ${colors.border} ${colors.hover}
-            `}
+            className="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-border hover:bg-muted/50 transition-all duration-200 cursor-pointer group"
         >
-            <div className="flex justify-between items-start w-full">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground truncate max-w-[100px]">
-                    {(data.sensor_type || 'Sensor').replace(/_/g, ' ')}
+            <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${colors.bg} ${colors.text}`}>
+                    <Icon className="h-5 w-5" />
+                </div>
+                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors" title={sensorTypeLabels[data.sensor_type]}>
+                    {sensorTypeLabels[data.sensor_type] || (data.sensor_type || 'Sensor').replace(/_/g, ' ')}
                 </span>
-                <Icon className={`h-5 w-5 ${colors.text}`} />
             </div>
 
-            <div className="mt-1 flex items-baseline gap-1">
-                <span className="text-2xl font-extrabold tracking-tight text-foreground">
+            <div className="flex items-baseline gap-1.5">
+                <span className={`text-xl font-bold tracking-tight ${colors.text}`}>
                     {typeof data.value === 'number' ? data.value.toFixed(1) : (data.value || '--')}
                 </span>
-                {data.unit && (
+                {(sensorTypeUnits[data.sensor_type] || data.unit) && (
                     <span className="text-xs font-medium text-muted-foreground/70">
-                        {data.unit}
+                        {sensorTypeUnits[data.sensor_type] || data.unit}
                     </span>
                 )}
             </div>
