@@ -50,7 +50,19 @@ export async function initDatabase(): Promise<boolean> {
 
         try {
           const url = new URL(config.database.connectionString);
+          const originalHostname = url.hostname;
+
+          // Extract project reference from hostname (e.g. db.abcdefg.supabase.co -> abcdefg)
+          const projectRef = originalHostname.split('.')[1];
+
           url.hostname = FALLBACK_IP;
+
+          if (projectRef && !url.username.includes(projectRef)) {
+            // Supavisor needs [user].[project_ref] format when connecting via IP
+            console.log(`🔧 Appending project ref '${projectRef}' to username for direct IP connection`);
+            url.username = `${url.username}.${projectRef}`;
+          }
+
           poolConfig = {
             connectionString: url.toString(),
             ssl: { rejectUnauthorized: false },
